@@ -14,16 +14,23 @@
  * @returns {Promise<void>} resolves once every image has loaded or failed
  */
 export function preloadSprites(catalog, cache, basePath, onProgress) {
-  const keys = [];
+  // Resolve one image URL per unique sprite key. A species can opt into loading
+  // its source SVG directly (crisp, no rasterization step needed) with
+  // `visual.spriteExt: 'svg'`; otherwise the rasterized PNG under basePath is used.
+  const entries = [];
+  const seen = new Set();
   for (const species of catalog) {
     const v = species.visual;
     if (!v || v.type !== 'sprite') continue;
     const key = v.sprite || v.spriteSheet;
-    if (key && !cache.get(key) && !keys.includes(key)) keys.push(key);
+    if (!key || cache.get(key) || seen.has(key)) continue;
+    seen.add(key);
+    const url = v.spriteExt === 'svg' ? `${basePath}/src/${key}.svg` : `${basePath}/${key}.png`;
+    entries.push({ key, url });
   }
 
   let loaded = 0;
-  const total = keys.length;
+  const total = entries.length;
   if (total === 0) return Promise.resolve();
 
   return new Promise((resolve) => {
@@ -34,14 +41,14 @@ export function preloadSprites(catalog, cache, basePath, onProgress) {
       if (loaded === total) resolve();
     };
 
-    for (const key of keys) {
+    for (const { key, url } of entries) {
       const img = new Image();
       img.onload = () => done(key, img);
       img.onerror = () => {
-        console.warn(`[sprites] "${key}" not found at ${basePath}/${key}.png — using shape fallback.`);
+        console.warn(`[sprites] "${key}" not found at ${url} — using shape fallback.`);
         done(key, null);
       };
-      img.src = `${basePath}/${key}.png`;
+      img.src = url;
     }
   });
 }

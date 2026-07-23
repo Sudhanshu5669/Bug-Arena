@@ -43,6 +43,11 @@ export class BugArenaEngine extends EventEmitter {
     this.agentsById = new Map();
     this.food = [];
 
+    // Colony growth bookkeeping: cumulative food eaten per team, plus a running
+    // "credit" that spends down in `reinforceEvery`-sized chunks into new units.
+    this._teamFoodTotal = { [TEAMS.A]: 0, [TEAMS.B]: 0 };
+    this._reinforceCredit = { [TEAMS.A]: 0, [TEAMS.B]: 0 };
+
     // Per-engine id sequences → ids are reproducible for a given seed and never
     // collide between concurrently running engines.
     this._agentSeq = 0;
@@ -137,6 +142,10 @@ export class BugArenaEngine extends EventEmitter {
       // Mobility helper: snap `agent` toward `target` by up to `dist` px without
       // overlapping into it. Used by dash-type abilities.
       lunge: (agent, target, dist) => engine._lunge(agent, target, dist),
+      // Charge helper: drive `agent` a long way in `target`'s direction, plowing
+      // through every enemy along the swept line — each takes damage + knockback.
+      // Returns { startX, startY, endX, endY, hit } for the caller's dash VFX.
+      dashThrough: (agent, target, opts = {}) => engine._dashThrough(agent, target, opts),
 
       emitEvent: (type, data = {}) => engine.pushEvent(type, data),
       spawnEffect: (data = {}) => engine.pushEvent(EVENTS.EFFECT, data),
@@ -144,6 +153,31 @@ export class BugArenaEngine extends EventEmitter {
   }
 
   _spawnTeams() {
+    this.spawnPlan = {};
+
+    // Custom roster (from the fight builder): spawn EXACTLY what was requested,
+    // bypassing the random tier squads. Shape:
+    //   teams.custom = { A: [{ species, count }, ...], B: [...] }
+    const custom = this.config.teams.custom;
+    if (custom && (custom.A || custom.B)) {
+      for (const team of [TEAMS.A, TEAMS.B]) {
+        const units = this._expandCustomRoster(custom[team]);
+        const total = units.length;
+        let idx = 0;
+        let soldiers = 0;
+        let champions = 0;
+        for (const species of units) {
+          const isChampion = species.tier === 'champion';
+          const { x, y } = this._spawnPosition(team, idx++, total, isChampion);
+          this._spawnAgent(team, species, x, y);
+          if (isChampion) champions++;
+          else soldiers++;
+        }
+        this.spawnPlan[team] = { soldiers, champions };
+      }
+      return;
+    }
+
     // Tier-driven: a randomized squad of soldiers + a fixed count of champions,
     // each pick independent per team. No species names appear here — pools come
     // from the registry by tier, so new soldiers/champions slot in automatically.
@@ -169,6 +203,23 @@ export class BugArenaEngine extends EventEmitter {
       }
       this.spawnPlan[team] = { soldiers: squadSize, champions: championsPer };
     }
+  }
+
+  /**
+   * Turn a builder roster (`[{ species, count }]`) into a flat array of species
+   * configs. Unknown ids are skipped (never crash a battle), and counts are clamped
+   * to a sane range so a stray huge number can't hang the sim.
+   */
+  _expandCustomRoster(list) {
+    const units = [];
+    if (!Array.isArray(list)) return units;
+    for (const entry of list) {
+      if (!entry || !entry.species || !registry.hasSpecies(entry.species)) continue;
+      const count = Math.max(0, Math.min(100, Math.floor(entry.count ?? 0)));
+      const species = registry.getSpecies(entry.species);
+      for (let i = 0; i < count; i++) units.push(species);
+    }
+    return units;
   }
 
   /** Resolve a tier's species configs; `override` (ids) wins over the registry. */
@@ -285,6 +336,7 @@ export class BugArenaEngine extends EventEmitter {
     this.tick++;
 
     this._updateStatuses(); // burn/web etc. (may cause deaths)
+    this._resolveCasts(); // release any ability whose wind-up has elapsed (the "launch")
     this._runAgentAI(); // decide + move + attack (may cause deaths)
     this._runPassiveHooks(); // on_tick + aura_effect for every living agent
     this._flushRemovals(); // pull dead bodies out of the world
@@ -338,73 +390,214 @@ export class BugArenaEngine extends EventEmitter {
   }
 
   /**
-   * Generic per-agent decision logic. Note there is zero species branching here:
-   * target selection and movement use only `agent.stats` and the config mode.
+   * Generic per-agent decision logic. Still no species NAMES branch here: behaviour
+   * is driven entirely by the species' `ai` descriptor (forage/herd/hunt/target
+   * preference/last-stand) plus `agent.stats` and the battle mode, so a new species
+   * changes how it acts purely through data.
    */
   _think(agent) {
-    // Immobilized (e.g. webbed): cannot move OR attack — just struggle in place.
-    // It can still be freely attacked and take damage; that vulnerability is the point.
+    // Winding up an ability: fully committed. Hold the aim, drift into the recoil
+    // (the "pull back" before a leap), and don't run normal AI until it releases.
+    if (agent.castState) {
+      this._tickCast(agent);
+      return;
+    }
+
+    // Immobilized (e.g. webbed / staggered): cannot move OR attack — just struggle
+    // in place. It can still be freely attacked and take damage; that's the point.
     if (agent.statuses.some((s) => s.preventAttack)) {
       agent.action = ACTIONS.TRAPPED;
       this._setVelocity(agent, 0, 0);
       return;
     }
 
-    const mode = this.config.mode;
-    let target = null;
-    let targetIsEnemy = false;
+    const ai = agent.species.ai;
+    const allies = this._alliesAlive(agent);
 
-    if (mode === MODES.PASSIVE) {
-      // Only engage enemies close enough to be a threat; otherwise forage.
-      const threatRange = agent.stats.size * 3 + 30;
-      const threat = this._nearestEnemy(agent, threatRange);
-      if (threat) {
-        target = threat;
-        targetIsEnemy = true;
+    // Last of the colony (no allies left): a champion goes berserk — a one-time
+    // +20% to all stats — and actively hunts the enemy team across the whole arena.
+    if (ai.loneSurvivorRage && allies.length === 0) {
+      this._enrageIfNeeded(agent);
+      const prey = this._selectEnemyTarget(agent, Infinity, ai.targetPreference);
+      if (prey) return this._engageEnemy(agent, prey);
+      agent.action = ACTIONS.IDLE;
+      return this._wander(agent);
+    }
+
+    // Already in a fight? Find an enemy to engage. Bugs (and aggressive ants) hunt
+    // across full vision; passive ants only react to threats that get close.
+    const engageRange = ai.hunts
+      ? agent.stats.visionRange
+      : this.config.mode === MODES.PASSIVE
+        ? agent.stats.size * 3 + 30
+        : agent.stats.visionRange;
+    const enemy = this._selectEnemyTarget(agent, engageRange, ai.targetPreference);
+    if (enemy) return this._engageEnemy(agent, enemy);
+
+    // No fight: ants forage.
+    if (ai.forages) {
+      const food = this._nearestFood(agent);
+      if (food) return this._seekFood(agent, food);
+    }
+
+    // Still nothing to do: regroup toward the biggest allied herd and stay close.
+    // Loners (e.g. the suicide ant) only do this when exposed to a looming threat.
+    const shouldHerd = ai.herds || (ai.herdWhenExposed && this._isExposed(agent, allies));
+    if (shouldHerd) {
+      const core = this._herdCore(agent, allies);
+      if (core) return this._regroup(agent, core);
+    }
+
+    agent.action = ACTIONS.IDLE;
+    this._wander(agent);
+  }
+
+  /** Living teammates other than `agent`. */
+  _alliesAlive(agent) {
+    const out = [];
+    for (const o of this.agents) {
+      if (o.alive && o.team === agent.team && o !== agent) out.push(o);
+    }
+    return out;
+  }
+
+  /** Pursue/attack an enemy agent. */
+  _engageEnemy(agent, enemy) {
+    agent.targetId = enemy.id;
+    if (this._inAttackRange(agent, enemy)) {
+      agent.action = ACTIONS.ATTACK;
+      this._faceToward(agent, enemy);
+      this._setVelocity(agent, 0, 0);
+      if (agent.attackCooldown <= 0) {
+        this._performAttack(agent, enemy);
+        agent.attackCooldown = agent.stats.attackCooldown;
       }
     } else {
-      // Aggressive: hunt the nearest enemy within vision.
-      const enemy = this._nearestEnemy(agent, agent.stats.visionRange);
-      if (enemy) {
-        target = enemy;
-        targetIsEnemy = true;
-      }
+      agent.action = ACTIONS.PURSUE;
+      this._moveToward(agent, enemy);
     }
+  }
 
-    if (!target) {
-      const food = this._nearestFood(agent);
-      if (food) target = food;
+  /** Move to a food pellet and eat it once in reach. */
+  _seekFood(agent, food) {
+    agent.targetId = null;
+    const reach = agent.stats.size + food.size + 2;
+    if (this._dist(agent, food) <= reach) {
+      this._eatFood(agent, food);
+      agent.action = ACTIONS.EAT;
+      this._setVelocity(agent, 0, 0);
+    } else {
+      agent.action = ACTIONS.SEEK_FOOD;
+      this._moveToward(agent, food);
     }
+  }
 
-    if (targetIsEnemy) {
-      agent.targetId = target.id;
-      if (this._inAttackRange(agent, target)) {
-        agent.action = ACTIONS.ATTACK;
-        this._faceToward(agent, target);
-        this._setVelocity(agent, 0, 0);
-        if (agent.attackCooldown <= 0) {
-          this._performAttack(agent, target);
-          agent.attackCooldown = agent.stats.attackCooldown;
-        }
-      } else {
-        agent.action = ACTIONS.PURSUE;
-        this._moveToward(agent, target);
-      }
-    } else if (target) {
-      agent.targetId = null;
-      const reach = agent.stats.size + target.size + 2;
-      if (this._dist(agent, target) <= reach) {
-        this._eatFood(agent, target);
-        agent.action = ACTIONS.EAT;
-        this._setVelocity(agent, 0, 0);
-      } else {
-        agent.action = ACTIONS.SEEK_FOOD;
-        this._moveToward(agent, target);
-      }
+  /** March toward the herd core; once close, mill about within it. */
+  _regroup(agent, core) {
+    agent.targetId = null;
+    const closeR = agent.stats.size + core.stats.size + 40; // "closely"
+    if (this._dist(agent, core) > closeR) {
+      agent.action = ACTIONS.REGROUP;
+      this._moveToward(agent, core);
     } else {
       agent.action = ACTIONS.IDLE;
       this._wander(agent);
     }
+  }
+
+  /**
+   * The anchor of the biggest allied herd: the ally with the most teammates packed
+   * around it. Ties break toward the cluster nearest `agent` so it joins the group
+   * it's closest to. With one ally, that ally is the (trivial) herd.
+   */
+  _herdCore(agent, allies) {
+    if (!allies.length) return null;
+    const R = 120;
+    let best = null;
+    let bestCount = -1;
+    for (const a of allies) {
+      let count = 0;
+      for (const b of allies) if (b !== a && this._dist(a, b) <= R) count++;
+      if (
+        count > bestCount ||
+        (count === bestCount && best && this._dist(agent, a) < this._dist(agent, best))
+      ) {
+        bestCount = count;
+        best = a;
+      }
+    }
+    return best;
+  }
+
+  /** True if an enemy is in sight but no ally is nearby — i.e. dangerously alone. */
+  _isExposed(agent, allies) {
+    const enemy = this._nearestEnemy(agent, agent.stats.visionRange);
+    if (!enemy || this._inAttackRange(agent, enemy)) return false;
+    return !allies.some((a) => this._dist(agent, a) <= 90);
+  }
+
+  /**
+   * Pick an enemy within `range`.
+   *  - 'nearest'  : the closest one (the default).
+   *  - 'isolated' : the most alone one — fewest of ITS OWN teammates clustered
+   *                 around it (ties → closest). This is how the scorpion picks off
+   *                 lone ants/bugs and only wades into a horde when nothing's alone.
+   */
+  _selectEnemyTarget(agent, range, preference) {
+    if (preference !== 'isolated') return this._nearestEnemy(agent, range);
+    let best = null;
+    let bestScore = Infinity;
+    const R = 90;
+    for (const o of this.agents) {
+      if (!o.alive || o.team === agent.team) continue;
+      const d = this._dist(agent, o);
+      if (d > range) continue;
+      let density = 0;
+      for (const m of this.agents) {
+        if (m.alive && m.team === o.team && m !== o && this._dist(o, m) <= R) density++;
+      }
+      const score = density * 1000 + d; // isolation dominates; distance breaks ties
+      if (score < bestScore) {
+        bestScore = score;
+        best = o;
+      }
+    }
+    return best;
+  }
+
+  /**
+   * The last-stand buff: a one-time +20% to every combat stat (attack cooldown
+   * drops so it swings faster), current HP scaled up to match, and a lasting
+   * "Enraged" marker + burst so it's unmistakable on screen.
+   */
+  _enrageIfNeeded(agent) {
+    if (agent.memory.enraged) return;
+    agent.memory.enraged = true;
+    const M = 1.2;
+    agent.stats.speed *= M;
+    agent.stats.damage *= M;
+    agent.stats.attackRange *= M;
+    agent.stats.visionRange *= M;
+    agent.stats.attackCooldown = Math.max(1, Math.round(agent.stats.attackCooldown / M));
+    agent.stats.maxHealth = Math.round(agent.stats.maxHealth * M);
+    agent.maxHealth = agent.stats.maxHealth;
+    agent.health = Math.min(agent.maxHealth, Math.round(agent.health * M));
+
+    this._applyStatus(
+      agent,
+      { type: 'enraged', label: 'Enraged', duration: this.config.maxTicks + 100 },
+      agent
+    );
+    this.pushEvent(EVENTS.EFFECT, { kind: 'enrage', x: round(agent.x), y: round(agent.y), team: agent.team });
+    this.pushEvent(EVENTS.ABILITY, {
+      casterId: agent.id,
+      casterTeam: agent.team,
+      casterSpecies: agent.speciesId,
+      ability: 'Last Stand',
+      text: `${agent.species.name} is the last of its colony — enraged!`,
+      x: round(agent.x),
+      y: round(agent.y),
+    });
   }
 
   // ---------------------------------------------------------------------------
@@ -432,35 +625,132 @@ export class BugArenaEngine extends EventEmitter {
 
   /**
    * Hybrid ability gate, evaluated on every attack. This is generic — no species
-   * branching. Flow: attack already dealt normal damage above; if the ability is
-   * off cooldown, roll its chance; on a hit, fire it and start the cooldown; on a
-   * miss, nothing happens and no cooldown is consumed (it can try again next hit).
+   * branching. Flow: the attack already dealt normal damage above; if the ability
+   * is off cooldown and not mid-cast, roll its chance. On a hit, commit the cooldown
+   * and either fire immediately or (if the ability has a `windupSeconds`) enter a
+   * telegraphed wind-up that releases later in `_resolveCasts`. On a chance-miss,
+   * nothing happens and no cooldown is consumed (it can try again next hit).
    */
   _tryAbility(agent, target) {
     const ability = agent.species.ability;
     if (!ability || !target || !target.alive) return;
     if (agent.abilityCooldown > 0) return; // cooldown gate
+    if (agent.castState) return; // already committed to a wind-up
     if (this.rng() >= ability.triggerChance) return; // random-chance gate
 
-    ability.onTrigger(agent, target, this.api);
+    // Cooldown is committed the instant the ability is triggered — the wind-up is
+    // part of the cast, not free time to re-roll.
     agent.abilityCooldown = Math.max(1, Math.round(ability.cooldownSeconds * this.config.tickRate));
+
+    const windupTicks = ability.windupSeconds
+      ? Math.max(1, Math.round(ability.windupSeconds * this.config.tickRate))
+      : 0;
+    if (windupTicks > 0) {
+      this._beginCast(agent, ability, target, windupTicks);
+    } else {
+      this._fireAbility(agent, ability, target);
+    }
+  }
+
+  /**
+   * Enter the anticipation phase: face the target, remember the aim, and telegraph
+   * it so the renderer can play the wind-up (a mantis crouch/recoil, a spider's web
+   * gathering). The actual effect fires later, in `_resolveCasts`.
+   */
+  _beginCast(agent, ability, target, windupTicks) {
+    this._faceToward(agent, target);
+    const dx = target.x - agent.x;
+    const dy = target.y - agent.y;
+    const d = Math.hypot(dx, dy) || 1;
+    agent.castState = {
+      abilityName: ability.name,
+      releaseTick: this.tick + windupTicks,
+      windupTicks,
+      targetId: target.id,
+      dirX: dx / d,
+      dirY: dy / d,
+      recoil: ability.windupRecoil ?? 0, // px to slide backward across the wind-up
+    };
+    agent.action = ACTIONS.WINDUP;
+
+    this.pushEvent(EVENTS.EFFECT, {
+      kind: 'windup',
+      casterId: agent.id,
+      ability: ability.name,
+      color: ability.telegraphColor ?? '#ffe08a',
+      x: round(agent.x),
+      y: round(agent.y),
+      dirX: round(dx / d, 3),
+      dirY: round(dy / d, 3),
+      team: agent.team,
+      duration: round(windupTicks / this.config.tickRate, 2),
+    });
+  }
+
+  /** Per-tick behaviour while an agent is winding up: hold aim + recoil back. */
+  _tickCast(agent) {
+    const cs = agent.castState;
+    agent.action = ACTIONS.WINDUP;
+    this._setVelocity(agent, 0, 0);
+    Body.setAngle(agent.body, Math.atan2(cs.dirY, cs.dirX));
+    if (cs.recoil > 0) {
+      const { width, height, wallThickness: t } = this.config.arena;
+      const pad = agent.stats.size + 2;
+      const step = cs.recoil / cs.windupTicks; // spread the pull-back over the wind-up
+      const nx = Math.max(t + pad, Math.min(width - t - pad, agent.x - cs.dirX * step));
+      const ny = Math.max(t + pad, Math.min(height - t - pad, agent.y - cs.dirY * step));
+      Body.setPosition(agent.body, { x: nx, y: ny });
+    }
+  }
+
+  /** Release every cast whose wind-up has elapsed (runs before the AI each tick). */
+  _resolveCasts() {
+    for (const agent of this.agents) {
+      if (!agent.alive || !agent.castState) continue;
+      const cs = agent.castState;
+      if (this.tick < cs.releaseTick) continue;
+      agent.castState = null;
+
+      const ability = agent.species.ability;
+      if (!ability) continue;
+      // Re-acquire the target: the original may have died or fled during the wind-up.
+      let target = this.agentsById.get(cs.targetId);
+      if (!target || !target.alive) target = this._nearestEnemy(agent, agent.stats.visionRange);
+      // Direction-based abilities (e.g. a dash) still launch even with no target —
+      // aim the body at the remembered heading so they fly true.
+      Body.setAngle(agent.body, Math.atan2(cs.dirY, cs.dirX));
+      this._fireAbility(agent, ability, target);
+    }
+  }
+
+  /**
+   * Actually apply an ability: run its `onTrigger`, then emit the readable ABILITY
+   * event. Shared by the instant path and the deferred (post-wind-up) path.
+   */
+  _fireAbility(agent, ability, target) {
+    // Target-required abilities (e.g. the web's epicentre) fizzle if nothing's left
+    // to hit; direction-based ones opt out via `requiresTarget: false`.
+    if (!target && ability.requiresTarget !== false) return;
+
+    const result = ability.onTrigger(agent, target, this.api);
 
     const text =
       typeof ability.log === 'function'
-        ? ability.log(agent, target)
+        ? ability.log(agent, target, result)
         : `${agent.species.name} used ${ability.name}`;
     this.pushEvent(EVENTS.ABILITY, {
       casterId: agent.id,
       casterTeam: agent.team,
       casterSpecies: agent.speciesId,
-      targetId: target.id,
-      targetTeam: target.team,
-      targetSpecies: target.speciesId,
+      targetId: target?.id ?? null,
+      targetTeam: target?.team ?? null,
+      targetSpecies: target?.speciesId ?? null,
       ability: ability.name,
       text, // short, readable — consumed by the kill feed and future narration layer
       x: round(agent.x), // caster position, for the floating ability tag
       y: round(agent.y),
     });
+    return result;
   }
 
   /** Snap `agent` toward `target` by up to `dist` px without overlapping into it. */
@@ -471,6 +761,99 @@ export class BugArenaEngine extends EventEmitter {
     const gap = d - (agent.stats.size + (target.stats?.size ?? 0));
     const step = Math.max(0, Math.min(dist, gap));
     Body.setPosition(agent.body, { x: agent.x + (dx / d) * step, y: agent.y + (dy / d) * step });
+  }
+
+  /**
+   * Charge: drive `agent` a long distance in `target`'s direction and plow through
+   * every enemy whose body the swept line touches — each takes `damage` and is
+   * knocked clear of the lane. The dasher ends past its foes, not stuck on the
+   * first one, which is what makes it read as a "dash", not a nudge.
+   *
+   * @param {object} opts  { distance, radius, damage, knockback }
+   * @returns {{ startX:number, startY:number, endX:number, endY:number, hit:Agent[] }}
+   */
+  _dashThrough(agent, target, opts = {}) {
+    const distance = opts.distance ?? 130;
+    const radius = opts.radius ?? agent.stats.size + 16;
+    const damage = opts.damage ?? agent.stats.damage;
+    const knockback = opts.knockback ?? 30;
+
+    const startX = agent.x;
+    const startY = agent.y;
+    // Aim at the target; fall back to current heading if none.
+    let dx = target ? target.x - startX : Math.cos(agent.angle);
+    let dy = target ? target.y - startY : Math.sin(agent.angle);
+    const dlen = Math.hypot(dx, dy) || 1;
+    dx /= dlen;
+    dy /= dlen;
+
+    // End point, clamped inside the playable inset so we never dash into a wall.
+    const { width, height, wallThickness: t } = this.config.arena;
+    const pad = agent.stats.size + 2;
+    const endX = Math.max(t + pad, Math.min(width - t - pad, startX + dx * distance));
+    const endY = Math.max(t + pad, Math.min(height - t - pad, startY + dy * distance));
+
+    // Everyone the sweep touches (collect BEFORE moving anyone).
+    const hit = [];
+    for (const o of this.agents) {
+      if (!o.alive || o.team === agent.team) continue;
+      const gap = this._distPointSegment(o.x, o.y, startX, startY, endX, endY) - o.stats.size;
+      if (gap <= radius) hit.push(o);
+    }
+
+    // Move the dasher to the end of the charge.
+    Body.setPosition(agent.body, { x: endX, y: endY });
+    Body.setAngle(agent.body, Math.atan2(dy, dx));
+
+    // Perpendicular to travel — used to shove each victim off the lane.
+    const px = -dy;
+    const py = dx;
+    const staggerTicks = Math.max(1, Math.round((opts.staggerSeconds ?? 0.55) * this.config.tickRate));
+    for (const o of hit) {
+      let side = (o.x - startX) * px + (o.y - startY) * py; // which side of the line
+      if (Math.abs(side) < 1e-3) side = 1; // dead-on hit → pick a side deterministically
+      const sign = side >= 0 ? 1 : -1;
+      // Mostly sideways (bowled aside) with a little forward carry.
+      const kx = px * sign * knockback + dx * knockback * 0.4;
+      const ky = py * sign * knockback + dy * knockback * 0.4;
+      const fromX = o.x;
+      const fromY = o.y;
+      const nx = Math.max(t + pad, Math.min(width - t - pad, o.x + kx));
+      const ny = Math.max(t + pad, Math.min(height - t - pad, o.y + ky));
+      Body.setPosition(o.body, { x: nx, y: ny });
+      Body.setVelocity(o.body, { x: 0, y: 0 });
+      // An impact spark that flies from where they were struck to where they land,
+      // so the knockback actually reads on screen.
+      this.pushEvent(EVENTS.EFFECT, { kind: 'impact', x: round(nx), y: round(ny), x0: round(fromX), y0: round(fromY) });
+      this._applyDamage(o, damage, { sourceAgent: agent, cause: 'dash_strike' });
+      // Stunned on landing — they don't just spring back up swinging.
+      if (o.alive) {
+        this._applyStatus(
+          o,
+          {
+            type: 'stagger',
+            label: 'Dazed',
+            duration: staggerTicks,
+            speedMultiplier: 0,
+            preventMove: true,
+            preventAttack: true,
+          },
+          agent
+        );
+      }
+    }
+
+    return { startX, startY, endX, endY, hit };
+  }
+
+  /** Shortest distance from point (px,py) to the segment (ax,ay)-(bx,by). */
+  _distPointSegment(px, py, ax, ay, bx, by) {
+    const dx = bx - ax;
+    const dy = by - ay;
+    const len2 = dx * dx + dy * dy;
+    let t = len2 ? ((px - ax) * dx + (py - ay) * dy) / len2 : 0;
+    t = Math.max(0, Math.min(1, t));
+    return Math.hypot(px - (ax + t * dx), py - (ay + t * dy));
   }
 
   _applyDamage(target, amount, meta = {}) {
@@ -499,6 +882,13 @@ export class BugArenaEngine extends EventEmitter {
 
   _applyStatus(target, descriptor, source = null) {
     if (!target.alive) return;
+    // Damage-over-time is AUTHORED per second (intuitive), but the engine ticks it
+    // every frame — so convert here. `damagePerTick` stays supported for any caller
+    // that really wants raw per-tick values.
+    const damagePerTick =
+      descriptor.damagePerSecond != null
+        ? descriptor.damagePerSecond / this.config.tickRate
+        : descriptor.damagePerTick ?? 0;
     const status = {
       id: `s${this._statusSeq++}`,
       type: descriptor.type,
@@ -506,7 +896,7 @@ export class BugArenaEngine extends EventEmitter {
       duration: descriptor.duration,
       remaining: descriptor.duration,
       speedMultiplier: descriptor.speedMultiplier ?? 1,
-      damagePerTick: descriptor.damagePerTick ?? 0,
+      damagePerTick,
       preventMove: !!descriptor.preventMove, // generic flags the engine reads
       preventAttack: !!descriptor.preventAttack, // (immobilize = both true)
       sourceId: source ? source.id : null,
@@ -568,6 +958,60 @@ export class BugArenaEngine extends EventEmitter {
     this._heal(agent, this.config.food.healAmount);
     agent.memory.foodEaten = (agent.memory.foodEaten ?? 0) + 1;
     this.pushEvent(EVENTS.FOOD_EATEN, { agentId: agent.id, foodId: food.id, team: agent.team });
+
+    // Colony growth: bank the food toward this team's next reinforcement. Skipped
+    // in custom-roster fights so the exact matchup you built stays the matchup.
+    this._teamFoodTotal[agent.team] += 1;
+    const custom = this.config.teams.custom;
+    const isCustomFight = !!(custom && (custom.A || custom.B));
+    const every = this.config.food.reinforceEvery;
+    if (!isCustomFight && every > 0) {
+      this._reinforceCredit[agent.team] += 1;
+      // A `while` (not `if`) so a config with a small threshold can't fall behind.
+      while (this._reinforceCredit[agent.team] >= every) {
+        this._reinforceCredit[agent.team] -= every;
+        this._spawnReinforcement(agent.team);
+      }
+    }
+  }
+
+  /**
+   * Muster one fresh unit for `team` at its home wall. Almost always a soldier
+   * ant; with `food.bugChance` it's a champion-tier BUG instead. Tier-driven — it
+   * picks from the same registry pools as the opening roster, so any newly added
+   * soldier/bug is eligible with no change here.
+   */
+  _spawnReinforcement(team) {
+    const isBug = this.rng() < this.config.food.bugChance;
+    const tier = isBug ? 'champion' : 'soldier';
+    const poolOverride = isBug ? this.config.teams.championPool : this.config.teams.soldierPool;
+    const pool = this._resolveTierPool(tier, poolOverride);
+    const species = pool[Math.floor(this.rng() * pool.length)];
+    const { x, y } = this._reinforceSpawnPosition(team);
+    this._spawnAgent(team, species, x, y);
+
+    this.pushEvent(EVENTS.REINFORCEMENT, {
+      team,
+      speciesId: species.id,
+      speciesName: species.name,
+      tier,
+      isBug,
+      x: round(x),
+      y: round(y),
+    });
+    // A spawn-in flourish at the muster point (team-tinted; gold when it's a bug).
+    this.pushEvent(EVENTS.EFFECT, { kind: 'spawn_in', x: round(x), y: round(y), team, isBug });
+  }
+
+  /** A muster point just inside `team`'s home wall, at a random lane. */
+  _reinforceSpawnPosition(team) {
+    const { width, height, wallThickness: t } = this.config.arena;
+    const top = t + 30;
+    const bottom = height - t - 30;
+    const y = top + this.rng() * (bottom - top);
+    const depth = 24 + this.rng() * 44;
+    const x = team === TEAMS.A ? t + depth : width - t - depth;
+    return { x, y };
   }
 
   _flushRemovals() {

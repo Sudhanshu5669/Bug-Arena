@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- Food morsel — a plump golden grain/berry the colony forages for. Top-down.
+       Source art; the canvas renderer draws it directly for each food pellet. -->
+  <defs>
+    <radialGradient id="foodBody" cx="40%" cy="32%" r="78%">
+      <stop offset="0%" stop-color="#ffe9b0"/>
+      <stop offset="42%" stop-color="#f2c469"/>
+      <stop offset="78%" stop-color="#d99633"/>
+      <stop offset="100%" stop-color="#9c5e1c"/>
+    </radialGradient>
+    <radialGradient id="foodLeaf" cx="35%" cy="30%" r="85%">
+      <stop offset="0%" stop-color="#a6e26a"/>
+      <stop offset="100%" stop-color="#3f8f28"/>
+    </radialGradient>
+    <radialGradient id="foodGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="rgba(255,224,150,0.55)"/>
+      <stop offset="100%" stop-color="rgba(255,224,150,0)"/>
+    </radialGradient>
+  </defs>
+
+  <!-- soft aura so the morsel pops against the sand floor -->
+  <circle cx="64" cy="66" r="54" fill="url(#foodGlow)"/>
+
+  <!-- leaf sprig + stem, tucked behind the top of the grain -->
+  <path d="M64 30 Q63 16 66 6" fill="none" stroke="#4a7a1f" stroke-width="4" stroke-linecap="round"/>
+  <path d="M66 20 Q86 12 96 22 Q80 34 66 26 Z" fill="url(#foodLeaf)" stroke="#2c6317" stroke-width="2.5"/>
+  <path d="M70 22 Q82 20 92 23" fill="none" stroke="#2c6317" stroke-width="1.6" opacity="0.6"/>
+
+  <!-- the grain body -->
+  <ellipse cx="64" cy="70" rx="34" ry="42" fill="url(#foodBody)" stroke="#7a4a16" stroke-width="4"/>
+
+  <!-- central seam + side creases give it a seed-like read -->
+  <path d="M64 34 Q58 70 64 106" fill="none" stroke="#8a5a1e" stroke-width="2.4" opacity="0.6"/>
+  <path d="M46 48 Q42 70 48 96" fill="none" stroke="#8a5a1e" stroke-width="1.8" opacity="0.4"/>
+  <path d="M82 48 Q86 70 80 96" fill="none" stroke="#8a5a1e" stroke-width="1.8" opacity="0.4"/>
+
+  <!-- specular highlight -->
+  <ellipse cx="52" cy="52" rx="10" ry="15" fill="#fff6dd" opacity="0.65"/>
+  <ellipse cx="49" cy="47" rx="4" ry="6" fill="#ffffff" opacity="0.8"/>
+</svg>

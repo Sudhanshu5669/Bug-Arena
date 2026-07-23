@@ -55,15 +55,45 @@ function validate(config) {
   }
 }
 
+/**
+ * Sensible AI defaults by tier, so most species need no `ai` block at all:
+ *  - soldiers (ants) forage, herd up when idle, and (in passive mode) only fight
+ *    threats that stray into range.
+ *  - champions (bugs) don't forage; they hunt on sight, herd toward the biggest
+ *    allied cluster between fights, and go berserk as the last one standing.
+ * Any field can be overridden per species via its `ai: {...}` block.
+ */
+function defaultAi(tier) {
+  return tier === TIERS.CHAMPION
+    ? {
+        forages: false,
+        herds: true,
+        herdWhenExposed: false,
+        hunts: true, // seek enemies across full vision, regardless of battle mode
+        targetPreference: 'nearest', // 'nearest' | 'isolated'
+        loneSurvivorRage: true, // +20% all stats when it's the last of its team
+      }
+    : {
+        forages: true,
+        herds: true,
+        herdWhenExposed: false,
+        hunts: false, // ants use the battle mode (passive = threats only)
+        targetPreference: 'nearest',
+        loneSurvivorRage: false,
+      };
+}
+
 /** Fill in optional fields so the engine can call any hook without guarding. */
 function normalize(config) {
+  const tier = config.tier ?? TIERS.SOLDIER; // default tier: soldier
   return {
     id: config.id,
     name: config.name,
     flavor: config.flavor ?? '',
-    tier: config.tier ?? TIERS.SOLDIER, // default tier: soldier
+    tier,
     stats: { ...config.stats },
     visual: { ...config.visual },
+    ai: { ...defaultAi(tier), ...(config.ai ?? {}) },
     hooks: { ...(config.hooks ?? {}) },
     ability: config.ability ? { ...config.ability } : null,
   };

@@ -9,8 +9,12 @@ const $ = (id) => document.getElementById(id);
 
 let renderer = null;
 let catalog = {};
-let currentMode = 'aggressive';
+let currentMode = 'passive'; // forage-first is the default feel (overwritten by init.mode)
 let rafStarted = false;
+
+// --- Fight builder state (survives auto-restarts; seeded once from the catalog) ---
+let customRoster = { A: {}, B: {} }; // { A: { speciesId: count }, B: {...} }
+let builderSeeded = false;
 
 // --- WebSocket ---------------------------------------------------------------
 
@@ -44,6 +48,14 @@ function onInit(init) {
   currentMode = init.mode;
   syncModeButtons();
 
+  // Seed the builder with a sample matchup the first time we know the roster,
+  // then (re)draw it. Never reseed — the user's picks persist across restarts.
+  if (!builderSeeded) {
+    seedDefaultRoster();
+    builderSeeded = true;
+  }
+  renderBuilder();
+
   if (!renderer) renderer = new CanvasRenderer(canvas, init);
   else renderer.setInit(init);
 
@@ -70,6 +82,7 @@ function onSnapshot(snap) {
   for (const ev of snap.events) {
     if (ev.type === 'death') pushFeed(ev);
     else if (ev.type === 'ability') pushAbilityFeed(ev);
+    else if (ev.type === 'reinforcement') pushReinforcementFeed(ev);
   }
 }
 
@@ -155,6 +168,22 @@ function updateAbilityDebug(snap) {
   el.innerHTML = (rows || '') + squadLine;
 }
 
+// A colony grew: foraging paid off with a fresh unit (an ant, or rarely a bug).
+function pushReinforcementFeed(ev) {
+  const feed = $('feed');
+  const line = document.createElement('div');
+  line.className = 'line';
+  const name = catalog[ev.speciesId]?.name || ev.speciesName || ev.speciesId;
+  const col = teamColor(ev.team);
+  if (ev.isBug) {
+    line.innerHTML = `★ <b style="color:${col}">Team ${ev.team}</b> hatched a bug — <b style="color:#ffd24a">${name}</b>!`;
+  } else {
+    line.innerHTML = `➕ <b style="color:${col}">Team ${ev.team}</b> reinforced — <b style="color:${col}">${name}</b>`;
+  }
+  feed.prepend(line);
+  while (feed.childElementCount > 40) feed.removeChild(feed.lastChild);
+}
+
 function pushFeed(ev) {
   const feed = $('feed');
   const victim = catalog[ev.victimSpecies]?.name || ev.victimSpecies;
@@ -182,6 +211,12 @@ function verbFor(cause) {
       return 'critically struck';
     case 'ranged':
       return 'sniped';
+    case 'poison':
+      return 'poisoned';
+    case 'sting':
+      return 'stung';
+    case 'dash_strike':
+      return 'ran down';
     default:
       return 'killed';
   }
@@ -219,13 +254,18 @@ function hideOverlay() {
 
 // --- Controls ----------------------------------------------------------------
 
-$('btn-new').addEventListener('click', () => send({ cmd: 'restart', config: { mode: currentMode } }));
+// "New Battle" goes back to a RANDOM tier-generated fight — explicitly clear any
+// custom roster so the server stops replaying the built matchup.
+$('btn-new').addEventListener('click', () =>
+  send({ cmd: 'restart', config: { mode: currentMode, seed: null, teams: { custom: null } } })
+);
 $('mode-agg').addEventListener('click', () => setMode('aggressive'));
 $('mode-pass').addEventListener('click', () => setMode('passive'));
 
 function setMode(mode) {
   currentMode = mode;
   syncModeButtons();
+  // setMode keeps whatever roster is active (random or custom) and just swaps mode.
   send({ cmd: 'setMode', mode });
 }
 
@@ -233,3 +273,97 @@ function syncModeButtons() {
   $('mode-agg').classList.toggle('active', currentMode === 'aggressive');
   $('mode-pass').classList.toggle('active', currentMode === 'passive');
 }
+
+// --- Fight builder ----------------------------------------------------------
+
+// A sample matchup so the builder is usable the moment it loads.
+function seedDefaultRoster() {
+  const set = (team, id, n) => {
+    if (catalog[id]) customRoster[team][id] = n;
+  };
+  set('A', 'fireAnt', 6);
+  set('A', 'mantis', 1);
+  set('B', 'bulletAnt', 6);
+  set('B', 'scorpion', 1);
+}
+
+// Draw a stepper row per species for each team, reflecting current counts.
+function renderBuilder() {
+  const ids = Object.keys(catalog);
+  for (const team of ['A', 'B']) {
+    const el = $(`build-${team.toLowerCase()}`);
+    if (!el) continue;
+    el.innerHTML = ids
+      .map((id) => {
+        const n = customRoster[team][id] || 0;
+        const color = catalog[id]?.visual?.color || '#888';
+        const name = catalog[id]?.name || id;
+        return `<div class="build-row ${n > 0 ? 'has' : ''}" data-sp="${id}">
+          <span class="dot" style="background:${color}"></span>
+          <span class="bname">${name}</span>
+          <span class="stepper">
+            <button class="dec" type="button" aria-label="fewer">−</button>
+            <span class="bcount">${n}</span>
+            <button class="inc" type="button" aria-label="more">+</button>
+          </span>
+        </div>`;
+      })
+      .join('');
+  }
+}
+
+// One delegated handler per team list (the containers are static, so this is
+// attached once and survives every renderBuilder re-draw).
+function setupBuilderControls() {
+  for (const team of ['A', 'B']) {
+    const list = $(`build-${team.toLowerCase()}`);
+    if (!list) continue;
+    list.addEventListener('click', (e) => {
+      const btn = e.target.closest('button');
+      const row = e.target.closest('.build-row');
+      if (!btn || !row) return;
+      const sp = row.dataset.sp;
+      const cur = customRoster[team][sp] || 0;
+      const next = btn.classList.contains('inc') ? Math.min(50, cur + 1) : Math.max(0, cur - 1);
+      customRoster[team][sp] = next;
+      row.querySelector('.bcount').textContent = next;
+      row.classList.toggle('has', next > 0);
+    });
+  }
+
+  $('btn-simulate').addEventListener('click', simulateCustomFight);
+  $('btn-clear-build').addEventListener('click', () => {
+    customRoster = { A: {}, B: {} };
+    renderBuilder();
+    $('build-hint').textContent = '';
+  });
+}
+
+function rosterList(team) {
+  return Object.entries(customRoster[team])
+    .filter(([, n]) => n > 0)
+    .map(([species, count]) => ({ species, count }));
+}
+
+function simulateCustomFight() {
+  const hint = $('build-hint');
+  const A = rosterList('A');
+  const B = rosterList('B');
+  if (!A.length || !B.length) {
+    hint.textContent = 'Add at least one unit to each team.';
+    return;
+  }
+  const raw = $('build-seed').value.trim();
+  let seed = null;
+  if (raw !== '') {
+    seed = Number(raw);
+    if (!Number.isFinite(seed)) {
+      hint.textContent = 'Seed must be a number (or blank for random).';
+      return;
+    }
+  }
+  hint.textContent = '';
+  send({ cmd: 'restart', config: { mode: currentMode, seed, teams: { custom: { A, B } } } });
+}
+
+setupBuilderControls();

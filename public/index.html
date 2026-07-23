@@ -116,6 +116,30 @@
       .seg button { border: none; border-radius: 0; }
       .seg button.active { background: var(--a); color: #04121f; }
       .status-pill { font-size: 11px; color: var(--muted); }
+
+      /* --- Fight builder --- */
+      .builder { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+      .bteam h4 { margin: 0 0 6px; font-size: 12px; }
+      .bteam h4.a { color: var(--a); }
+      .bteam h4.b { color: var(--b); }
+      .build-list { display: flex; flex-direction: column; gap: 4px; }
+      .build-row { display: flex; align-items: center; gap: 6px; font-size: 12px; opacity: 0.55; }
+      .build-row.has { opacity: 1; }
+      .build-row .bname { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .stepper { display: inline-flex; align-items: center; gap: 3px; }
+      .stepper button {
+        padding: 0 7px; font-size: 14px; line-height: 1.5; border-radius: 6px;
+        background: var(--panel-2); min-width: 22px;
+      }
+      .stepper .bcount { min-width: 16px; text-align: center; font-variant-numeric: tabular-nums; }
+      .builder-foot { display: flex; align-items: center; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+      .seed-field { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 5px; }
+      .seed-field input {
+        width: 78px; background: var(--panel-2); color: var(--text);
+        border: 1px solid var(--line); border-radius: 6px; padding: 5px 7px; font: inherit;
+      }
+      .build-hint { font-size: 11px; color: var(--b); margin-top: 6px; min-height: 14px; }
+
       @media (max-width: 900px) { .wrap { grid-template-columns: 1fr; } }
     </style>
   </head>
@@ -170,13 +194,33 @@
         <div class="card">
           <h3>Controls</h3>
           <div class="controls">
-            <button class="primary" id="btn-new">New Battle</button>
+            <button class="primary" id="btn-new">New Battle (random)</button>
             <span class="seg">
-              <button id="mode-agg" class="active">Aggressive</button>
-              <button id="mode-pass">Passive</button>
+              <button id="mode-agg">Aggressive</button>
+              <button id="mode-pass" class="active">Passive</button>
             </span>
           </div>
           <div class="meta"><span id="meta-seed">seed —</span></div>
+        </div>
+
+        <div class="card">
+          <h3>Build a Fight</h3>
+          <div class="builder">
+            <div class="bteam">
+              <h4 class="a">Team A</h4>
+              <div id="build-a" class="build-list"></div>
+            </div>
+            <div class="bteam">
+              <h4 class="b">Team B</h4>
+              <div id="build-b" class="build-list"></div>
+            </div>
+          </div>
+          <div class="builder-foot">
+            <label class="seed-field">Seed <input id="build-seed" type="text" inputmode="numeric" placeholder="random" /></label>
+            <button class="primary" id="btn-simulate">Simulate ▶</button>
+            <button id="btn-clear-build">Clear</button>
+          </div>
+          <div class="build-hint" id="build-hint"></div>
         </div>
       </div>
     </div>

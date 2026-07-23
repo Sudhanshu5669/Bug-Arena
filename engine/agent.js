@@ -29,6 +29,9 @@ export class Agent {
 
     this.attackCooldown = 0; // ticks remaining until this agent can attack again
     this.abilityCooldown = 0; // ticks remaining until the signature ability can fire again
+    // Non-null while an ability is winding up (anticipation before it fires). The
+    // engine resolves it in `_resolveCasts` once `releaseTick` arrives.
+    this.castState = null;
     this.statuses = []; // active status effects (burn/web/...) — see engine._updateStatuses
     this.speedMultiplier = 1; // derived from statuses each tick
 

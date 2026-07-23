@@ -27,14 +27,23 @@ export const DEFAULT_CONFIG = Object.freeze({
     championPool: null,
   },
 
-  mode: 'aggressive', // 'aggressive' | 'passive'
+  // Default behaviour: colonies FORAGE first and only fight enemies that stray
+  // into range (see MODES.PASSIVE). This reads as two colonies gathering food and
+  // skirmishing when they meet, rather than a straight-line brawl. 'aggressive'
+  // (hunt-on-sight) is still selectable from the UI.
+  mode: 'passive', // 'aggressive' | 'passive'
 
   food: {
-    initial: 16, // food pellets present at battle start
-    spawnEveryTicks: 60, // spawn one pellet this often (0 disables mid-battle spawns)
-    maxOnField: 40,
+    initial: 8, // food pellets present at battle start (kept sparse on purpose)
+    spawnEveryTicks: 75, // spawn one pellet this often (0 disables mid-battle spawns)
+    maxOnField: 18,
     healAmount: 12, // HP restored when an agent eats
-    size: 5, // pellet radius
+    size: 7, // pellet radius
+    // Colony growth: every `reinforceEvery` food a colony consumes (cumulative),
+    // a fresh unit marches in from its home wall. Usually a soldier ant, but with
+    // `bugChance` probability a champion-tier BUG is born to fight for them instead.
+    reinforceEvery: 4,
+    bugChance: 0.05, // 5% chance a reinforcement is a bug rather than an ant
   },
 
   combat: {

@@ -6,8 +6,10 @@ export const ACTIONS = Object.freeze({
   IDLE: 'idle',
   SEEK_FOOD: 'seek_food',
   EAT: 'eat',
+  REGROUP: 'regroup', // moving to rejoin the biggest allied herd (bugs, idle ants)
   PURSUE: 'pursue',
   ATTACK: 'attack',
+  WINDUP: 'windup', // committed to an ability: recoiling/gathering before it fires
   TRAPPED: 'trapped', // immobilized by a status (e.g. webbed): cannot move or attack
   DEAD: 'dead',
 });
@@ -26,6 +28,7 @@ export const EVENTS = Object.freeze({
   STATUS_APPLIED: 'status_applied',
   FOOD_SPAWN: 'food_spawn',
   FOOD_EATEN: 'food_eaten',
+  REINFORCEMENT: 'reinforcement', // a colony's foraging birthed a new unit (ant or bug)
   BATTLE_OVER: 'battle_over',
 });
 

@@ -26,13 +26,22 @@ const TEAM = {
   A: { ring: '#4ea1ff', glow: 'rgba(78,161,255,0.55)' },
   B: { ring: '#ff5d73', glow: 'rgba(255,93,115,0.55)' },
 };
-const STATUS_COLOR = { burn: '#ff7a2c', web: '#c9a8ff' };
+const STATUS_COLOR = {
+  burn: '#ff7a2c',
+  web: '#c9a8ff',
+  stagger: '#ffd24a',
+  poison: '#8fe04a',
+  slow: '#6ad0d8',
+  enraged: '#ff4d4d',
+};
 // Floating damage-number color by cause (falls back to a neutral hit color).
 const DAMAGE_COLOR = {
   burn: '#ff9a3c',
   ember_burst: '#ff7a2c',
   dash_strike: '#ffd24a',
   chemical_blast: '#c8ff6a',
+  poison: '#8fe04a',
+  sting: '#d7c23a',
 };
 
 export class CanvasRenderer {
@@ -51,7 +60,25 @@ export class CanvasRenderer {
     this._agentFx = new Map(); // id -> { flash } attack pop timers
     this._lastFrameTs = 0;
 
+    // Food morsel art, drawn directly from SVG (crisp at any zoom). Until it loads
+    // — or if it 404s — `_drawFood` falls back to a procedural pellet, so food is
+    // never invisible.
+    this._foodImg = null;
+    this._loadFoodSprite();
+
     this.setInit(init);
+  }
+
+  _loadFoodSprite() {
+    const img = new Image();
+    img.onload = () => {
+      this._foodImg = img;
+    };
+    img.onerror = () => {
+      this._foodImg = null; // keep the procedural fallback
+      console.warn('[food] food.svg failed to load — using procedural morsel.');
+    };
+    img.src = '/assets/sprites/src/food.svg';
   }
 
   /** (Re)configure from an init payload: scene dims, catalog, camera, background, sprites. */
@@ -288,7 +315,28 @@ export class CanvasRenderer {
     this.latest = snapshot;
     for (const ev of snapshot.events) {
       if (ev.type === 'effect') {
-        this.effects.push({ ...ev, life: 1, ttl: ttlFor(ev.kind) });
+        if (ev.kind === 'dash') {
+          // The dash becomes a train of fading AFTERIMAGES of the caster along the
+          // whole charge, plus a landing shock — far punchier than a plain line.
+          this.effects.push({
+            kind: 'afterimage',
+            x1: ev.x1,
+            y1: ev.y1,
+            x2: ev.x2,
+            y2: ev.y2,
+            angle: ev.angle ?? Math.atan2((ev.y2 ?? 0) - (ev.y1 ?? 0), (ev.x2 ?? 0) - (ev.x1 ?? 0)),
+            speciesId: ev.speciesId,
+            life: 1,
+            ttl: 0.42,
+          });
+          this.effects.push({ kind: 'dash_shock', x: ev.x2, y: ev.y2, life: 1, ttl: 0.32 });
+        } else if (ev.kind === 'windup') {
+          // Lives exactly as long as the engine's wind-up so the build-up lands
+          // right as the ability fires.
+          this.effects.push({ ...ev, life: 1, ttl: Math.max(0.12, ev.duration ?? 0.2) });
+        } else {
+          this.effects.push({ ...ev, life: 1, ttl: ttlFor(ev.kind) });
+        }
       } else if (ev.type === 'attack') {
         // Attack "pop" on the attacker + a themed strike mark at the target.
         this._agentFx.set(ev.attackerId, { flash: 1 });
@@ -308,6 +356,18 @@ export class CanvasRenderer {
           rise: 26,
           life: 1,
           ttl: 1.0,
+        });
+      } else if (ev.type === 'reinforcement') {
+        // A colony's foraging birthed a new unit — announce it above the muster point.
+        this._floatText.push({
+          kind: 'ability',
+          text: ev.isBug ? `★ ${ev.speciesName}!` : `+ ${ev.speciesName}`,
+          x: ev.x ?? 0,
+          y: (ev.y ?? 0) - 8,
+          color: ev.isBug ? '#ffd24a' : ev.team === 'B' ? '#ff9aa8' : '#9ec9ff',
+          rise: 24,
+          life: 1,
+          ttl: 1.4,
         });
       } else if (ev.type === 'death') {
         const color = this.catalog[ev.victimSpecies]?.visual?.color || '#caa';
@@ -438,28 +498,35 @@ export class CanvasRenderer {
 
   _drawFood(ctx, food) {
     if (!food) return;
+    const img = this._foodImg;
     for (const f of food) {
-      // glisten
+      // faint ground glisten so the morsel reads against the sand
       ctx.save();
       ctx.globalCompositeOperation = 'lighter';
-      ctx.fillStyle = 'rgba(255,210,120,0.20)';
+      ctx.fillStyle = 'rgba(255,210,120,0.16)';
       ctx.beginPath();
-      ctx.arc(f.x, f.y, f.size + 3, 0, Math.PI * 2);
+      ctx.arc(f.x, f.y, f.size + 4, 0, Math.PI * 2);
       ctx.fill();
       ctx.restore();
-      // morsel
-      ctx.beginPath();
-      ctx.arc(f.x, f.y, f.size, 0, Math.PI * 2);
-      ctx.fillStyle = '#e7b96b';
-      ctx.fill();
-      ctx.lineWidth = 1.2;
-      ctx.strokeStyle = '#7a4f22';
-      ctx.stroke();
-      // highlight
-      ctx.beginPath();
-      ctx.arc(f.x - f.size * 0.3, f.y - f.size * 0.3, f.size * 0.35, 0, Math.PI * 2);
-      ctx.fillStyle = 'rgba(255,255,255,0.55)';
-      ctx.fill();
+
+      if (img) {
+        // The SVG grain, drawn a touch larger than the hit radius so it feels chunky.
+        const half = f.size * 2.2;
+        ctx.drawImage(img, f.x - half, f.y - half, half * 2, half * 2);
+      } else {
+        // Procedural fallback morsel (until the SVG loads / if it fails).
+        ctx.beginPath();
+        ctx.arc(f.x, f.y, f.size, 0, Math.PI * 2);
+        ctx.fillStyle = '#e7b96b';
+        ctx.fill();
+        ctx.lineWidth = 1.2;
+        ctx.strokeStyle = '#7a4f22';
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(f.x - f.size * 0.3, f.y - f.size * 0.3, f.size * 0.35, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(255,255,255,0.55)';
+        ctx.fill();
+      }
     }
   }
 
@@ -506,6 +573,23 @@ export class CanvasRenderer {
       ctx.lineWidth = 2.5;
       ctx.stroke();
 
+      // --- last-stand rage: a pulsing red aura under the body (persistent tell) ---
+      if (a.statuses.some((s) => s.type === 'enraged')) {
+        const pulse = 0.5 + 0.5 * Math.sin(t * 8 + hashId(a.id));
+        const rr = size * (1.9 + 0.3 * pulse);
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.globalAlpha = 0.28 + 0.32 * pulse;
+        const rage = ctx.createRadialGradient(a.x, a.y, size * 0.5, a.x, a.y, rr);
+        rage.addColorStop(0, 'rgba(255,70,55,0.55)');
+        rage.addColorStop(1, 'rgba(255,40,40,0)');
+        ctx.fillStyle = rage;
+        ctx.beginPath();
+        ctx.arc(a.x, a.y, rr, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+
       // --- movement + action driven squash/stretch ---
       const prev = this._prevPos.get(a.id);
       const moved = prev ? Math.hypot(a.x - prev.x, a.y - prev.y) : 0;
@@ -513,7 +597,12 @@ export class CanvasRenderer {
       const phase = t * 11 + hashId(a.id);
       let sx = 1;
       let sy = 1;
-      if (a.action === 'attack') {
+      if (a.action === 'windup') {
+        // Coil: compress low and wide with a taut quiver — anticipation before release.
+        const q = 0.03 * Math.sin(t * 40 + hashId(a.id));
+        sy = 0.82 + q;
+        sx = 1.16 - q;
+      } else if (a.action === 'attack') {
         sy = 1 + 0.1 * Math.sin(t * 22);
         sx = 1 - 0.06 * Math.sin(t * 22);
       } else if (moved > 0.35) {
@@ -532,10 +621,12 @@ export class CanvasRenderer {
         sy *= pop;
       }
 
-      // --- webbed / immobilized: struggle shake on the body + overlay ---
-      const webbed = a.statuses.some((s) => s.immobilize || s.type === 'web');
-      const jx = webbed ? Math.sin(t * 34 + hashId(a.id)) * 1.6 : 0;
-      const jy = webbed ? Math.cos(t * 31 + hashId(a.id)) * 1.2 : 0;
+      // --- webbed / staggered: struggle shake on the body + the right overlay ---
+      const webbed = a.statuses.some((s) => s.type === 'web');
+      const staggered = a.statuses.some((s) => s.type === 'stagger');
+      const shaking = webbed || staggered;
+      const jx = shaking ? Math.sin(t * 34 + hashId(a.id)) * 1.6 : 0;
+      const jy = shaking ? Math.cos(t * 31 + hashId(a.id)) * 1.2 : 0;
 
       // --- the species body (sprite, or shape fallback) ---
       ctx.save();
@@ -556,6 +647,8 @@ export class CanvasRenderer {
 
       // --- web net overlaying trapped targets (the "locked down" tell) ---
       if (webbed) drawWebOverlay(ctx, a.x + jx, a.y + jy, size * 1.9);
+      // --- dazed: little orbiting stars above a knocked-about bug ---
+      if (staggered) drawStaggerOverlay(ctx, a.x + jx, a.y + jy - size * 1.6, size, t + hashId(a.id));
 
       // --- status halo (subtle colored ring) ---
       const tint = a.statuses.map((s) => STATUS_COLOR[s.type]).find(Boolean);
@@ -608,7 +701,91 @@ export class CanvasRenderer {
   }
 
   _drawEffects(ctx) {
-    for (const fx of this.effects) drawEffect(ctx, fx);
+    for (const fx of this.effects) {
+      // These two need renderer state (the sprite catalog / live caster position),
+      // so they're drawn here rather than by the stateless `drawEffect`.
+      if (fx.kind === 'afterimage') this._drawAfterimages(ctx, fx);
+      else if (fx.kind === 'windup') this._drawWindup(ctx, fx);
+      else drawEffect(ctx, fx);
+    }
+  }
+
+  /**
+   * Fading ghosts of the caster strung along a dash. Ghosts near the START are the
+   * faintest and they get more solid toward the landing point — so the trail reads
+   * as "he was just there, and there, and there" as he tore forward.
+   */
+  _drawAfterimages(ctx, fx) {
+    const visual = this.catalog[fx.speciesId]?.visual;
+    if (!visual) return;
+    const ghosts = 6;
+    const life = Math.max(0, fx.life);
+    for (let i = 0; i < ghosts - 1; i++) {
+      const s = i / (ghosts - 1); // 0 = wind-up spot, 1 = landing spot
+      const x = fx.x1 + (fx.x2 - fx.x1) * s;
+      const y = fx.y1 + (fx.y2 - fx.y1) * s;
+      const alpha = (0.06 + 0.34 * s) * life; // fainter the further back it is
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      drawAgent(
+        ctx,
+        { x, y, angle: fx.angle || 0, action: 'idle', id: 'ghost', statuses: [] },
+        visual,
+        { spriteCache: this.spriteCache, scaleX: 1, scaleY: 1 }
+      );
+      ctx.restore();
+    }
+  }
+
+  /**
+   * The ability wind-up telegraph: a gathering ring that tightens and brightens as
+   * release nears, tracking the live caster so it stays glued to a recoiling body.
+   */
+  _drawWindup(ctx, fx) {
+    // Follow the caster if it's still on the field (the mantis slides back mid-coil).
+    let x = fx.x;
+    let y = fx.y;
+    if (fx.casterId && this.latest) {
+      const live = this.latest.agents.find((a) => a.id === fx.casterId);
+      if (live) {
+        x = live.x;
+        y = live.y;
+      }
+    }
+    const build = 1 - Math.max(0, Math.min(1, fx.life)); // 0 at cast start → ~1 at release
+    const col = fx.color || '#ffe08a';
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+
+    // Aim tick: a short arrow of energy in the ability's direction.
+    if (fx.dirX != null && fx.dirY != null) {
+      ctx.globalAlpha = 0.25 + 0.55 * build;
+      ctx.strokeStyle = col;
+      ctx.lineWidth = 2 + 2 * build;
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.lineTo(x + fx.dirX * (14 + 20 * build), y + fx.dirY * (14 + 20 * build));
+      ctx.stroke();
+    }
+
+    // Gathering ring: wide + faint at first, tightening to a bright core.
+    const r = 30 * (1 - 0.55 * build);
+    ctx.globalAlpha = 0.2 + 0.55 * build;
+    ctx.strokeStyle = col;
+    ctx.lineWidth = 2 + 2.5 * build;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.stroke();
+
+    const core = ctx.createRadialGradient(x, y, 0, x, y, 16);
+    core.addColorStop(0, col);
+    core.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.globalAlpha = 0.25 + 0.55 * build;
+    ctx.fillStyle = core;
+    ctx.beginPath();
+    ctx.arc(x, y, 16, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
   }
 
   _ageEffects(dt) {
@@ -675,16 +852,57 @@ function drawWebOverlay(ctx, cx, cy, r) {
   ctx.restore();
 }
 
+/** Cartoon "dazed" stars orbiting above a knocked-about, stunned bug. */
+function drawStaggerOverlay(ctx, cx, cy, size, phase) {
+  const stars = 3;
+  const r = size * 1.1;
+  ctx.save();
+  ctx.translate(cx, cy);
+  for (let i = 0; i < stars; i++) {
+    const ang = phase * 2 + (i / stars) * Math.PI * 2;
+    const sx = Math.cos(ang) * r;
+    const sy = Math.sin(ang) * r * 0.45; // squashed orbit reads as "above the head"
+    drawStar(ctx, sx, sy, 2.6, '#ffe27a');
+  }
+  ctx.restore();
+}
+
+function drawStar(ctx, x, y, rad, color) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  for (let i = 0; i < 5; i++) {
+    const a1 = (i / 5) * Math.PI * 2 - Math.PI / 2;
+    const a2 = a1 + Math.PI / 5;
+    ctx.lineTo(Math.cos(a1) * rad, Math.sin(a1) * rad);
+    ctx.lineTo(Math.cos(a2) * rad * 0.45, Math.sin(a2) * rad * 0.45);
+  }
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+}
+
 function ttlFor(kind) {
   switch (kind) {
     case 'explosion':
       return 0.5;
     case 'web_cast':
       return 0.4; // strands shoot out then fade fast (not a lingering beam)
+    case 'web_splash':
+      return 0.6; // the wide net flashes over the caught area, then fades
+    case 'spawn_in':
+      return 0.7; // reinforcement muster flourish
+    case 'venom':
+      return 0.5; // a splash of venom on a stung target
+    case 'poison_cloud':
+      return 0.9; // the suicide ant's lingering death spray
+    case 'enrage':
+      return 0.9; // last-stand burst
     case 'flare':
       return 0.45;
     case 'dash':
-      return 0.28;
+      return 0.34;
     case 'burn':
       return 0.3;
     default:
@@ -739,6 +957,60 @@ function drawEffect(ctx, fx) {
       ctx.stroke();
       break;
     }
+    case 'web_splash': {
+      // A wide web net that flashes over the whole caught area, then fades. Reads
+      // as the spider's snare landing on a cluster, not a single strand.
+      const r = (fx.radius || 60) * (0.86 + 0.14 * (1 - a));
+      ctx.globalAlpha = a * 0.62;
+      ctx.strokeStyle = 'rgba(225,215,255,0.92)';
+      ctx.lineWidth = 1.1;
+      ctx.translate(fx.x, fx.y);
+      const spokes = 12;
+      for (let i = 0; i < spokes; i++) {
+        const ang = (i / spokes) * Math.PI * 2;
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(Math.cos(ang) * r, Math.sin(ang) * r);
+        ctx.stroke();
+      }
+      for (let ring = 1; ring <= 4; ring++) {
+        const ringR = (r * ring) / 4;
+        ctx.beginPath();
+        for (let i = 0; i <= spokes; i++) {
+          const ang = (i / spokes) * Math.PI * 2;
+          const x = Math.cos(ang) * ringR;
+          const y = Math.sin(ang) * ringR;
+          if (i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+      }
+      break;
+    }
+    case 'spawn_in': {
+      // Reinforcement muster: an expanding team-tinted ring + soft core. Gold when
+      // the newborn is a BUG rather than an ant.
+      const base = fx.isBug
+        ? 'rgba(255,205,90,'
+        : fx.team === 'B'
+          ? 'rgba(255,93,115,'
+          : 'rgba(78,161,255,';
+      ctx.globalCompositeOperation = 'lighter';
+      const r = 8 + (1 - a) * 24;
+      ctx.strokeStyle = `${base}${0.9 * a})`;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(fx.x, fx.y, r, 0, Math.PI * 2);
+      ctx.stroke();
+      const g = ctx.createRadialGradient(fx.x, fx.y, 0, fx.x, fx.y, r);
+      g.addColorStop(0, `${base}${0.5 * a})`);
+      g.addColorStop(1, `${base}0)`);
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(fx.x, fx.y, r, 0, Math.PI * 2);
+      ctx.fill();
+      break;
+    }
     case 'dash': {
       // Motion streak with a couple of trailing ghost strokes — a clear dash tell.
       ctx.globalCompositeOperation = 'lighter';
@@ -756,6 +1028,101 @@ function drawEffect(ctx, fx) {
       ctx.fillStyle = 'rgba(230,255,220,0.9)';
       ctx.beginPath();
       ctx.arc(fx.x2, fx.y2, 5, 0, Math.PI * 2);
+      ctx.fill();
+      break;
+    }
+    case 'dash_shock': {
+      // Bright shock ring where the mantis lands its charge.
+      ctx.globalCompositeOperation = 'lighter';
+      const r = 26 * (1 - a) + 6;
+      ctx.globalAlpha = a * 0.85;
+      ctx.strokeStyle = 'rgba(180,255,170,0.95)';
+      ctx.lineWidth = 3 * a + 1;
+      ctx.beginPath();
+      ctx.arc(fx.x, fx.y, r, 0, Math.PI * 2);
+      ctx.stroke();
+      const g = ctx.createRadialGradient(fx.x, fx.y, 0, fx.x, fx.y, r * 0.6);
+      g.addColorStop(0, `rgba(230,255,220,${0.7 * a})`);
+      g.addColorStop(1, 'rgba(120,255,120,0)');
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(fx.x, fx.y, r * 0.6, 0, Math.PI * 2);
+      ctx.fill();
+      break;
+    }
+    case 'impact': {
+      // A foe getting bowled aside: a streak from where it was struck to where it
+      // lands, capped by a little dust ring — so the knockback actually reads.
+      if (fx.x0 != null) {
+        ctx.globalAlpha = a * 0.55;
+        ctx.strokeStyle = 'rgba(255,226,185,0.9)';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.moveTo(fx.x0, fx.y0);
+        ctx.lineTo(fx.x, fx.y);
+        ctx.stroke();
+      }
+      ctx.globalAlpha = a * 0.8;
+      ctx.strokeStyle = 'rgba(255,240,215,0.9)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(fx.x, fx.y, 12 * (1 - a) + 3, 0, Math.PI * 2);
+      ctx.stroke();
+      break;
+    }
+    case 'venom': {
+      // A small green splash where a sting/venom lands.
+      ctx.globalCompositeOperation = 'lighter';
+      const r = (fx.radius || 12) * (1.2 - a);
+      const g = ctx.createRadialGradient(fx.x, fx.y, 0, fx.x, fx.y, r);
+      g.addColorStop(0, 'rgba(180,255,120,0.85)');
+      g.addColorStop(0.6, 'rgba(120,220,70,0.5)');
+      g.addColorStop(1, 'rgba(90,180,50,0)');
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(fx.x, fx.y, r, 0, Math.PI * 2);
+      ctx.fill();
+      break;
+    }
+    case 'poison_cloud': {
+      // The suicide ant's death spray: a billowing green cloud of drifting blobs.
+      const R = fx.radius || 46;
+      const grow = 0.6 + 0.4 * (1 - a);
+      ctx.globalAlpha = a * 0.5;
+      ctx.fillStyle = 'rgba(120,200,60,0.5)';
+      const blobs = 9;
+      for (let i = 0; i < blobs; i++) {
+        const ang = (i / blobs) * Math.PI * 2 + (1 - a) * 1.4;
+        const d = R * grow * (0.35 + 0.6 * ((i % 3) / 2));
+        const br = R * 0.32 * (0.8 + 0.4 * ((i % 2)));
+        ctx.beginPath();
+        ctx.arc(fx.x + Math.cos(ang) * d, fx.y + Math.sin(ang) * d, br, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      // faint toxic core
+      ctx.globalAlpha = a * 0.35;
+      ctx.fillStyle = 'rgba(150,230,80,0.6)';
+      ctx.beginPath();
+      ctx.arc(fx.x, fx.y, R * 0.5 * grow, 0, Math.PI * 2);
+      ctx.fill();
+      break;
+    }
+    case 'enrage': {
+      // Last-stand burst: a red shockwave + rising embers around the newly-enraged bug.
+      ctx.globalCompositeOperation = 'lighter';
+      const r = 30 * (1 - a) + 8;
+      ctx.globalAlpha = a * 0.9;
+      ctx.strokeStyle = 'rgba(255,80,70,0.95)';
+      ctx.lineWidth = 3 * a + 1.5;
+      ctx.beginPath();
+      ctx.arc(fx.x, fx.y, r, 0, Math.PI * 2);
+      ctx.stroke();
+      const g = ctx.createRadialGradient(fx.x, fx.y, 0, fx.x, fx.y, r);
+      g.addColorStop(0, `rgba(255,120,90,${0.6 * a})`);
+      g.addColorStop(1, 'rgba(255,40,40,0)');
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(fx.x, fx.y, r, 0, Math.PI * 2);
       ctx.fill();
       break;
     }

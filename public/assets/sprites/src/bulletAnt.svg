@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- Bullet Ant — top-down, facing up. Heavy infantry: bulky and near-black with
+       a faint warm sheen and a pronounced rear sting. Rendered directly from SVG. -->
+  <defs>
+    <radialGradient id="baGaster" cx="42%" cy="26%" r="80%">
+      <stop offset="0%" stop-color="#54494c"/>
+      <stop offset="55%" stop-color="#221d1f"/>
+      <stop offset="100%" stop-color="#070607"/>
+    </radialGradient>
+    <radialGradient id="baThorax" cx="42%" cy="28%" r="82%">
+      <stop offset="0%" stop-color="#463c3f"/>
+      <stop offset="100%" stop-color="#0d0a0c"/>
+    </radialGradient>
+    <radialGradient id="baHead" cx="42%" cy="28%" r="82%">
+      <stop offset="0%" stop-color="#4a3f42"/>
+      <stop offset="100%" stop-color="#0c090b"/>
+    </radialGradient>
+  </defs>
+
+  <!-- legs + antennae (drawn under the body) — thick, sturdy -->
+  <g fill="none" stroke="#050405" stroke-width="4.4" stroke-linecap="round">
+    <g id="baLimbs">
+      <path d="M55 54 Q35 45 21 33"/>
+      <path d="M55 62 Q34 61 19 62"/>
+      <path d="M55 70 Q36 80 24 93"/>
+      <path d="M60 30 Q52 18 47 8"/>
+    </g>
+    <use href="#baLimbs" transform="matrix(-1 0 0 1 128 0)"/>
+  </g>
+
+  <!-- heavy mandibles -->
+  <g fill="none" stroke="#050405" stroke-width="3.4" stroke-linecap="round">
+    <path d="M58 27 Q52 21 47 20"/>
+    <path d="M70 27 Q76 21 81 20"/>
+  </g>
+
+  <!-- rear stinger spike -->
+  <path d="M64 112 L60 122 L64 126 L68 122 Z" fill="#000000" stroke="#050405" stroke-width="1.5"/>
+
+  <!-- body segments — a broad, tanky build -->
+  <ellipse cx="64" cy="92" rx="18" ry="24" fill="url(#baGaster)" stroke="#050405" stroke-width="3.4"/>
+  <ellipse cx="64" cy="60" rx="13" ry="15" fill="url(#baThorax)" stroke="#050405" stroke-width="3.4"/>
+  <circle cx="64" cy="36" r="12.5" fill="url(#baHead)" stroke="#050405" stroke-width="3.4"/>
+
+  <!-- armour plating cinches + cool sheen on the gaster -->
+  <path d="M48 82 Q64 90 80 82" fill="none" stroke="#000000" stroke-width="2.4" opacity="0.6"/>
+  <path d="M50 100 Q64 107 78 100" fill="none" stroke="#000000" stroke-width="2.4" opacity="0.55"/>
+  <ellipse cx="57" cy="82" rx="6" ry="8" fill="#c8c8d2" opacity="0.28"/>
+
+  <!-- eyes -->
+  <circle cx="57" cy="36" r="2.6" fill="#000000"/>
+  <circle cx="71" cy="36" r="2.6" fill="#000000"/>
+  <circle cx="58" cy="35" r="1" fill="#e8e8ee" opacity="0.8"/>
+</svg>

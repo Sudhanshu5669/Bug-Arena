@@ -37,7 +37,7 @@ const server = http.createServer(app);
 const wss = new WebSocketServer({ server });
 
 let engine = null;
-let lastOverrides = { mode: 'aggressive' };
+let lastOverrides = { mode: 'passive' }; // forage-first is the default battle feel
 let restartTimer = null;
 
 function broadcast(message) {

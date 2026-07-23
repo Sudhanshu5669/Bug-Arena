@@ -5,10 +5,10 @@ import { registerSpecies } from './registry.js';
 
 // --- ability tuning (easy to find + tweak) -----------------------------------
 const IGNITE = {
-  TRIGGER_CHANCE: 0.35, // 35% chance per attack
+  TRIGGER_CHANCE: 0.3, // 30% chance per attack
   COOLDOWN_SECONDS: 5,
-  BURN_SECONDS: 3, // DoT duration
-  DAMAGE_PER_TICK: 2.0, // burn damage each tick while it lasts
+  BURN_SECONDS: 2.5, // DoT duration
+  DAMAGE_PER_SECOND: 12, // ~30 total burn over the duration — a real threat, not dominant
 };
 
 const fireAnt = {
@@ -18,7 +18,7 @@ const fireAnt = {
   flavor: 'A living ember. Its bite sets prey ablaze, and it bursts into flame when slain.',
 
   stats: {
-    maxHealth: 46,
+    maxHealth: 72, // rank-and-file ant — the HP baseline every BUG towers over
     speed: 1.7,
     size: 8,
     damage: 5,
@@ -52,7 +52,7 @@ const fireAnt = {
           type: 'burn',
           label: 'Burning',
           duration: ctx.seconds(IGNITE.BURN_SECONDS),
-          damagePerTick: IGNITE.DAMAGE_PER_TICK,
+          damagePerSecond: IGNITE.DAMAGE_PER_SECOND,
         },
         self
       );

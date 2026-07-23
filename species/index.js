@@ -6,7 +6,10 @@
 // no engine changes.
 
 import './fireAnt.js';
+import './bulletAnt.js';
+import './suicideAnt.js';
 import './spider.js';
 import './mantis.js';
+import './scorpion.js';
 
 export { registerSpecies, getSpecies, listSpecies, getCatalog } from './registry.js';
