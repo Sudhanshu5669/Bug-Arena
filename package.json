@@ -1,0 +1,30 @@
+{
+  "name": "bug-arena",
+  "version": "1.0.0",
+  "description": "Bug Arena — an extensible, headless-capable bug battle simulation engine with a live browser preview.",
+  "type": "module",
+  "main": "engine/index.js",
+  "scripts": {
+    "start": "node server/server.js",
+    "dev": "node server/server.js",
+    "headless": "node examples/headless.js",
+    "sprites:svg": "node tools/rasterizeSvgs.js",
+    "sprites:pixel": "node tools/genPlaceholderSprites.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "simulation",
+    "matter-js",
+    "physics",
+    "sandbox",
+    "game-engine"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.19.2",
+    "matter-js": "^0.20.0",
+    "ws": "^8.18.0"
+  }
+}

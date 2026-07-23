@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- Fire Ant — top-down, facing up. Source art; rasterized to fireAnt.png. -->
+  <defs>
+    <radialGradient id="antGaster" cx="42%" cy="30%" r="75%">
+      <stop offset="0%" stop-color="#ff9a6a"/>
+      <stop offset="55%" stop-color="#ff5a2c"/>
+      <stop offset="100%" stop-color="#a82f0d"/>
+    </radialGradient>
+    <radialGradient id="antThorax" cx="42%" cy="30%" r="80%">
+      <stop offset="0%" stop-color="#ff8a54"/>
+      <stop offset="100%" stop-color="#c53c12"/>
+    </radialGradient>
+    <radialGradient id="antHead" cx="42%" cy="30%" r="80%">
+      <stop offset="0%" stop-color="#ff8f5a"/>
+      <stop offset="100%" stop-color="#b8360f"/>
+    </radialGradient>
+  </defs>
+
+  <!-- legs + antennae (drawn under the body) -->
+  <g fill="none" stroke="#5a1600" stroke-width="3.6" stroke-linecap="round">
+    <g id="antLimbs">
+      <path d="M56 55 Q39 47 26 37"/>
+      <path d="M56 61 Q37 60 24 61"/>
+      <path d="M56 67 Q40 76 29 88"/>
+      <path d="M60 32 Q53 21 49 12"/>
+    </g>
+    <use href="#antLimbs" transform="matrix(-1 0 0 1 128 0)"/>
+  </g>
+
+  <!-- mandibles -->
+  <g fill="none" stroke="#5a1600" stroke-width="2.6" stroke-linecap="round">
+    <path d="M59 29 Q55 24 51 23"/>
+    <path d="M69 29 Q73 24 77 23"/>
+  </g>
+
+  <!-- body segments -->
+  <ellipse cx="64" cy="92" rx="15" ry="20" fill="url(#antGaster)" stroke="#5a1600" stroke-width="3"/>
+  <ellipse cx="64" cy="61" rx="11" ry="13" fill="url(#antThorax)" stroke="#5a1600" stroke-width="3"/>
+  <circle cx="64" cy="38" r="11" fill="url(#antHead)" stroke="#5a1600" stroke-width="3"/>
+
+  <!-- gaster segment cinches + sheen -->
+  <path d="M50 84 Q64 90 78 84" fill="none" stroke="#7a1f00" stroke-width="2" opacity="0.55"/>
+  <path d="M52 100 Q64 105 76 100" fill="none" stroke="#7a1f00" stroke-width="2" opacity="0.5"/>
+  <ellipse cx="58" cy="84" rx="5" ry="7" fill="#ffd0b0" opacity="0.4"/>
+
+  <!-- eyes -->
+  <circle cx="58" cy="38" r="2.4" fill="#3a0d00"/>
+  <circle cx="70" cy="38" r="2.4" fill="#3a0d00"/>
+  <circle cx="59" cy="37" r="0.9" fill="#ffd9c6" opacity="0.8"/>
+</svg>

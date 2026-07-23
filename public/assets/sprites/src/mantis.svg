@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- Blade Mantis — top-down, facing up. Source art; rasterized to mantis.png. -->
+  <defs>
+    <linearGradient id="mantisBody" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#5fd21f"/>
+      <stop offset="50%" stop-color="#38b000"/>
+      <stop offset="100%" stop-color="#1f7a00"/>
+    </linearGradient>
+    <radialGradient id="mantisHead" cx="42%" cy="32%" r="80%">
+      <stop offset="0%" stop-color="#6fdd2a"/>
+      <stop offset="100%" stop-color="#25860a"/>
+    </radialGradient>
+  </defs>
+
+  <!-- hind legs + antennae (under body) -->
+  <g fill="none" stroke="#0f3a08" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+    <g id="mantisHind">
+      <path d="M58 66 L40 74 L30 90"/>
+      <path d="M58 76 L40 90 L32 106"/>
+      <path d="M61 30 Q55 16 50 6"/>
+    </g>
+    <use href="#mantisHind" transform="matrix(-1 0 0 1 128 0)"/>
+  </g>
+
+  <!-- raptorial forelegs (thick, folded forward-up) -->
+  <g fill="none" stroke="#186010" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M59 50 L45 34 L57 22"/>
+    <path d="M69 50 L83 34 L71 22"/>
+  </g>
+  <!-- foreleg spines -->
+  <g fill="none" stroke="#2a7d18" stroke-width="1.6" stroke-linecap="round">
+    <path d="M52 42 l-4 3 M49 37 l-4 3 M63 26 l-4 3"/>
+    <path d="M76 42 l4 3 M79 37 l4 3 M65 26 l4 3"/>
+  </g>
+
+  <!-- slender body -->
+  <ellipse cx="64" cy="94" rx="8.5" ry="24" fill="url(#mantisBody)" stroke="#0f3a08" stroke-width="2.6"/>
+  <ellipse cx="64" cy="62" rx="7.5" ry="19" fill="url(#mantisBody)" stroke="#0f3a08" stroke-width="2.6"/>
+  <!-- abdomen segment hints + sheen -->
+  <path d="M57 96 h14 M57 106 h14 M58 86 h12" stroke="#0f3a08" stroke-width="1.4" opacity="0.5"/>
+  <ellipse cx="61" cy="60" rx="2.6" ry="12" fill="#a6ef6f" opacity="0.55"/>
+
+  <!-- triangular head + big compound eyes -->
+  <path d="M54 40 Q64 24 74 40 Q64 46 54 40 Z" fill="url(#mantisHead)" stroke="#0f3a08" stroke-width="2.6"/>
+  <circle cx="56" cy="35" r="5" fill="#0f3a08"/>
+  <circle cx="72" cy="35" r="5" fill="#0f3a08"/>
+  <circle cx="54.5" cy="33.5" r="1.6" fill="#b7f58a"/>
+  <circle cx="70.5" cy="33.5" r="1.6" fill="#b7f58a"/>
+</svg>
