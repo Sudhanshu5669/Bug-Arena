@@ -193,28 +193,47 @@ export class BugArenaEngine extends EventEmitter {
       return;
     }
 
-    // Tier-driven: a randomized squad of soldiers + a fixed count of champions,
-    // each pick independent per team. No species names appear here — pools come
-    // from the registry by tier, so new soldiers/champions slot in automatically.
+    // Tier-driven default matchup. A jumble of six different ant species per side
+    // is impossible to follow, so each team instead fields a SINGLE ant species
+    // (its whole squad) plus its champion "bug" — and the two teams draw DIFFERENT
+    // picks, so the fight always reads as "X ants + a bug  vs  Y ants + another bug".
+    // No species names appear here; pools come from the registry by tier, so new
+    // soldiers/champions slot in automatically.
     const soldierPool = this._resolveTierPool('soldier', this.config.teams.soldierPool);
     const championPool = this._resolveTierPool('champion', this.config.teams.championPool);
     const { min, max } = this.config.teams.soldiers;
     const championsPer = Math.max(0, this.config.teams.champions ?? 1);
 
+    // Pick one species from `pool`, avoiding `exclude` (the other team's pick) so a
+    // single-species pool still works and the two armies never share a face.
+    const pickDistinct = (pool, exclude) => {
+      if (pool.length <= 1) return pool[0];
+      let pick;
+      do {
+        pick = pool[Math.floor(this.rng() * pool.length)];
+      } while (pick === exclude);
+      return pick;
+    };
+
     this.spawnPlan = {};
+    let otherSoldier = null;
+    let otherChampion = null;
     for (const team of [TEAMS.A, TEAMS.B]) {
+      const soldierSpecies = pickDistinct(soldierPool, otherSoldier);
+      const championSpecies = pickDistinct(championPool, otherChampion);
+      otherSoldier = soldierSpecies;
+      otherChampion = championSpecies;
+
       const squadSize = this._randInt(min, max);
       const total = squadSize + championsPer;
       let idx = 0;
       for (let i = 0; i < squadSize; i++) {
-        const species = soldierPool[Math.floor(this.rng() * soldierPool.length)];
         const { x, y } = this._spawnPosition(team, idx++, total, false);
-        this._spawnAgent(team, species, x, y);
+        this._spawnAgent(team, soldierSpecies, x, y);
       }
       for (let i = 0; i < championsPer; i++) {
-        const species = championPool[Math.floor(this.rng() * championPool.length)];
         const { x, y } = this._spawnPosition(team, idx++, total, true);
-        this._spawnAgent(team, species, x, y);
+        this._spawnAgent(team, championSpecies, x, y);
       }
       this.spawnPlan[team] = { soldiers: squadSize, champions: championsPer };
     }
