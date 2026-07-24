@@ -93,6 +93,9 @@ function normalize(config) {
     tier,
     stats: { ...config.stats },
     visual: { ...config.visual },
+    // Sound signature: data-only recipes the browser's audio layer synthesizes.
+    // Same idea as `visual` — the engine never reads it, it just rides the catalog.
+    sfx: { ...(config.sfx ?? {}) },
     ai: { ...defaultAi(tier), ...(config.ai ?? {}) },
     hooks: { ...(config.hooks ?? {}) },
     ability: config.ability ? { ...config.ability } : null,
@@ -139,8 +142,9 @@ export function allSpecies() {
 }
 
 /**
- * The renderer-facing catalog: id -> visual + display meta + stats. A renderer
- * uses this (from the engine's init payload) to resolve how each species looks.
+ * The presentation-facing catalog: id -> visual + sfx + display meta + stats. A
+ * renderer uses this (from the engine's init payload) to resolve how each species
+ * LOOKS; the audio layer uses the same entry to resolve how it SOUNDS.
  */
 export function getCatalog() {
   return allSpecies().map((s) => ({
@@ -149,6 +153,7 @@ export function getCatalog() {
     flavor: s.flavor,
     tier: s.tier,
     visual: s.visual,
+    sfx: s.sfx,
     stats: s.stats,
     ability: s.ability
       ? {

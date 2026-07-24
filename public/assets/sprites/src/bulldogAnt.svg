@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- Bulldog Ant — top-down, facing up. The hunter: enormous forward-facing
+       compound eyes (the real species hunts by sight), long serrated jaws held
+       open, coiled back legs, and a prominent sting. Orange-red, aggressive. -->
+  <defs>
+    <radialGradient id="buGaster" cx="42%" cy="28%" r="80%">
+      <stop offset="0%" stop-color="#f59060"/>
+      <stop offset="52%" stop-color="#d1502a"/>
+      <stop offset="100%" stop-color="#521405"/>
+    </radialGradient>
+    <radialGradient id="buBody" cx="42%" cy="30%" r="82%">
+      <stop offset="0%" stop-color="#e5713f"/>
+      <stop offset="100%" stop-color="#4a1206"/>
+    </radialGradient>
+    <radialGradient id="buHead" cx="40%" cy="26%" r="80%">
+      <stop offset="0%" stop-color="#f08c58"/>
+      <stop offset="60%" stop-color="#c14a26"/>
+      <stop offset="100%" stop-color="#471106"/>
+    </radialGradient>
+  </defs>
+
+  <!-- legs: rear pair drawn coiled/bunched, ready to spring -->
+  <g fill="none" stroke="#3d1005" stroke-width="3.4" stroke-linecap="round">
+    <g id="buLimbs">
+      <path d="M56 62 Q37 54 25 44"/>
+      <path d="M56 70 Q36 71 23 72"/>
+      <!-- coiled jumping leg: sharp zig, not a smooth sweep -->
+      <path d="M56 80 Q42 86 38 96 Q36 104 28 108"/>
+      <path d="M59 40 Q51 30 46 21"/>
+    </g>
+    <use href="#buLimbs" transform="matrix(-1 0 0 1 128 0)"/>
+  </g>
+
+  <!-- long serrated hunting jaws, held wide -->
+  <g stroke="#3d1005" stroke-linecap="round" fill="none">
+    <g id="buJaw">
+      <path d="M55 36 Q42 28 32 14" stroke-width="5.4"/>
+      <path d="M55 36 Q42 28 32 14" stroke-width="2.2" stroke="#e08050"/>
+      <!-- serrations along the inner edge -->
+      <path d="M48 30 L52 26" stroke-width="2.2"/>
+      <path d="M42 24 L46 20" stroke-width="2.2"/>
+      <path d="M37 19 L41 15" stroke-width="2"/>
+    </g>
+    <use href="#buJaw" transform="matrix(-1 0 0 1 128 0)"/>
+  </g>
+
+  <!-- body -->
+  <ellipse cx="64" cy="92" rx="14" ry="18" fill="url(#buGaster)" stroke="#3d1005" stroke-width="3.2"/>
+  <ellipse cx="64" cy="66" rx="9.5" ry="12" fill="url(#buBody)" stroke="#3d1005" stroke-width="3.2"/>
+  <ellipse cx="64" cy="45" rx="11" ry="10" fill="url(#buHead)" stroke="#3d1005" stroke-width="3.2"/>
+
+  <!-- gaster banding + sting -->
+  <path d="M53 90 Q64 96 75 90" fill="none" stroke="#3d1005" stroke-width="1.9" opacity="0.5"/>
+  <ellipse cx="58" cy="87" rx="3.8" ry="5.6" fill="#ffd0b0" opacity="0.26"/>
+  <path d="M64 110 L61 120 L64 125 L67 120 Z" fill="#2e0c02" stroke="#3d1005" stroke-width="1.4"/>
+
+  <!-- THE EYES: huge, forward-facing, wrapping the head. Its defining feature. -->
+  <ellipse cx="56" cy="43" rx="5" ry="6.5" fill="#1a0d02" transform="rotate(16 56 43)"/>
+  <ellipse cx="72" cy="43" rx="5" ry="6.5" fill="#1a0d02" transform="rotate(-16 72 43)"/>
+  <circle cx="54.6" cy="40.4" r="1.7" fill="#ffe0c0" opacity="0.85"/>
+  <circle cx="70.6" cy="40.4" r="1.7" fill="#ffe0c0" opacity="0.6"/>
+  <!-- three ocelli on the crown -->
+  <g fill="#3d1005" opacity="0.8">
+    <circle cx="64" cy="37" r="1.2"/>
+    <circle cx="60" cy="35.5" r="1"/>
+    <circle cx="68" cy="35.5" r="1"/>
+  </g>
+</svg>

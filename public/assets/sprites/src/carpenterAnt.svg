@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- Carpenter Ant — top-down, facing up. Broad, dark and timber-hard: a heavy
+       ridged gaster with visible wood-grain plating and blunt splintered jaws. The
+       silhouette should say "armoured", not "fast". -->
+  <defs>
+    <radialGradient id="caGaster" cx="40%" cy="26%" r="80%">
+      <stop offset="0%" stop-color="#9c7048"/>
+      <stop offset="52%" stop-color="#6b4a2a"/>
+      <stop offset="100%" stop-color="#22140a"/>
+    </radialGradient>
+    <radialGradient id="caBody" cx="42%" cy="28%" r="82%">
+      <stop offset="0%" stop-color="#8a6238"/>
+      <stop offset="100%" stop-color="#241608"/>
+    </radialGradient>
+  </defs>
+
+  <!-- thick, braced legs + antennae -->
+  <g fill="none" stroke="#221407" stroke-width="4.4" stroke-linecap="round">
+    <g id="caLimbs">
+      <path d="M55 58 Q34 50 20 39"/>
+      <path d="M55 68 Q33 68 18 69"/>
+      <path d="M55 78 Q35 89 24 102"/>
+      <path d="M59 34 Q52 24 48 15"/>
+    </g>
+    <use href="#caLimbs" transform="matrix(-1 0 0 1 128 0)"/>
+  </g>
+
+  <!-- blunt, splintering mandibles -->
+  <g fill="none" stroke="#221407" stroke-width="4.6" stroke-linecap="round">
+    <path d="M56 32 Q48 25 43 20"/>
+    <path d="M72 32 Q80 25 85 20"/>
+  </g>
+  <!-- splinters chipped off the jaw edges -->
+  <g fill="none" stroke="#a8763f" stroke-width="1.8" stroke-linecap="round" opacity="0.8">
+    <path d="M47 24 L41 19"/><path d="M50 21 L47 15"/>
+    <path d="M81 24 L87 19"/><path d="M78 21 L81 15"/>
+  </g>
+
+  <!-- body: a heavy, wide build -->
+  <ellipse cx="64" cy="92" rx="19" ry="23" fill="url(#caGaster)" stroke="#221407" stroke-width="3.6"/>
+  <ellipse cx="64" cy="62" rx="12" ry="14" fill="url(#caBody)" stroke="#221407" stroke-width="3.4"/>
+  <circle cx="64" cy="40" r="11.5" fill="url(#caBody)" stroke="#221407" stroke-width="3.4"/>
+
+  <!-- wood-grain plating across the gaster: the "timber shell" tell -->
+  <g fill="none" stroke="#2e1c0b" stroke-width="2.2" opacity="0.6">
+    <path d="M47 84 Q64 91 81 84"/>
+    <path d="M46 94 Q64 101 82 94"/>
+    <path d="M50 104 Q64 110 78 104"/>
+  </g>
+  <g fill="none" stroke="#c49a63" stroke-width="1" opacity="0.35">
+    <path d="M52 78 Q64 84 76 78"/>
+    <path d="M50 89 Q64 96 78 89"/>
+  </g>
+  <ellipse cx="56" cy="82" rx="5" ry="7" fill="#e8c898" opacity="0.18"/>
+
+  <!-- eyes -->
+  <circle cx="58" cy="40" r="2.4" fill="#160c03"/>
+  <circle cx="70" cy="40" r="2.4" fill="#160c03"/>
+  <circle cx="58.7" cy="39.2" r="0.9" fill="#f0dcb8" opacity="0.8"/>
+</svg>

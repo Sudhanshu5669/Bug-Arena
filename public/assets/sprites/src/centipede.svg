@@ -1,0 +1,89 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- Centipede — top-down, facing up. A long chain of rust-red segments running
+       the full height of the frame, a leg pair on every one, and the big venom
+       claws (forcipules) hooked forward under the head. -->
+  <defs>
+    <radialGradient id="cpSeg" cx="38%" cy="30%" r="80%">
+      <stop offset="0%" stop-color="#e8825f"/>
+      <stop offset="52%" stop-color="#b8452f"/>
+      <stop offset="100%" stop-color="#571407"/>
+    </radialGradient>
+    <radialGradient id="cpHead" cx="40%" cy="28%" r="82%">
+      <stop offset="0%" stop-color="#f09468"/>
+      <stop offset="55%" stop-color="#c04a2c"/>
+      <stop offset="100%" stop-color="#4e1105"/>
+    </radialGradient>
+  </defs>
+
+  <!-- LEGS: one pair per segment, raked backward. Drawn under the body plates. -->
+  <g fill="none" stroke="#2e0f08" stroke-width="2.6" stroke-linecap="round">
+    <g id="cpLegs">
+      <path d="M54 34 Q38 30 27 22"/>
+      <path d="M53 46 Q36 44 24 38"/>
+      <path d="M53 58 Q35 58 22 55"/>
+      <path d="M53 70 Q35 72 23 72"/>
+      <path d="M54 82 Q37 86 26 89"/>
+      <path d="M55 94 Q39 99 29 105"/>
+      <path d="M56 106 Q42 112 34 119"/>
+    </g>
+    <use href="#cpLegs" transform="matrix(-1 0 0 1 128 0)"/>
+  </g>
+  <!-- leg tips -->
+  <g fill="none" stroke="#2e0f08" stroke-width="1.6" stroke-linecap="round" opacity="0.9">
+    <path d="M27 22 L22 18"/><path d="M22 55 L16 54"/><path d="M26 89 L20 92"/>
+    <path d="M101 22 L106 18"/><path d="M106 55 L112 54"/><path d="M102 89 L108 92"/>
+  </g>
+
+  <!-- BODY: overlapping segment plates, widest at the shoulders, tapering to the
+       rear. Drawn back-to-front so each plate laps over the one behind it. -->
+  <g stroke="#2e0f08" stroke-width="2.6">
+    <ellipse cx="64" cy="110" rx="8"    ry="7"   fill="url(#cpSeg)"/>
+    <ellipse cx="64" cy="98"  rx="9.4"  ry="7.6" fill="url(#cpSeg)"/>
+    <ellipse cx="64" cy="86"  rx="10.6" ry="8"   fill="url(#cpSeg)"/>
+    <ellipse cx="64" cy="74"  rx="11.4" ry="8.2" fill="url(#cpSeg)"/>
+    <ellipse cx="64" cy="62"  rx="11.8" ry="8.2" fill="url(#cpSeg)"/>
+    <ellipse cx="64" cy="50"  rx="11.4" ry="8"   fill="url(#cpSeg)"/>
+    <ellipse cx="64" cy="38"  rx="10.6" ry="7.8" fill="url(#cpSeg)"/>
+  </g>
+
+  <!-- a highlight running down the spine so the chain reads as one animal -->
+  <g fill="#ffd0b8" opacity="0.2">
+    <ellipse cx="59" cy="48" rx="3" ry="5"/>
+    <ellipse cx="59" cy="72" rx="3" ry="5"/>
+    <ellipse cx="59" cy="94" rx="2.4" ry="4"/>
+  </g>
+
+  <!-- the two trailing sensory legs at the tail -->
+  <g fill="none" stroke="#2e0f08" stroke-width="2.4" stroke-linecap="round">
+    <path d="M60 116 Q54 124 50 128"/>
+    <path d="M68 116 Q74 124 78 128"/>
+  </g>
+
+  <!-- HEAD -->
+  <ellipse cx="64" cy="26" rx="11" ry="9.5" fill="url(#cpHead)" stroke="#2e0f08" stroke-width="3"/>
+
+  <!-- long trailing antennae -->
+  <g fill="none" stroke="#2e0f08" stroke-width="2.4" stroke-linecap="round">
+    <path d="M57 20 Q46 12 38 4"/>
+    <path d="M71 20 Q82 12 90 4"/>
+  </g>
+
+  <!-- FORCIPULES: the venom claws, hooked forward and inward under the head -->
+  <g stroke="#2e0f08" stroke-linecap="round" fill="none">
+    <path d="M56 30 Q44 24 42 12" stroke-width="6"/>
+    <path d="M72 30 Q84 24 86 12" stroke-width="6"/>
+    <path d="M56 30 Q44 24 42 12" stroke-width="2.6" stroke="#d4714c"/>
+    <path d="M72 30 Q84 24 86 12" stroke-width="2.6" stroke="#d4714c"/>
+  </g>
+  <!-- claw tips, curving back toward each other -->
+  <path d="M42 12 Q46 5 54 6" fill="none" stroke="#2e0f08" stroke-width="4" stroke-linecap="round"/>
+  <path d="M86 12 Q82 5 74 6" fill="none" stroke="#2e0f08" stroke-width="4" stroke-linecap="round"/>
+  <!-- venom beads on the points -->
+  <circle cx="54" cy="6" r="2" fill="#a8e05c" opacity="0.85"/>
+  <circle cx="74" cy="6" r="2" fill="#a8e05c" opacity="0.85"/>
+
+  <!-- small, simple eyes -->
+  <circle cx="59" cy="25" r="2.1" fill="#240a03"/>
+  <circle cx="69" cy="25" r="2.1" fill="#240a03"/>
+  <circle cx="59.6" cy="24.3" r="0.8" fill="#ffd9c4" opacity="0.85"/>
+</svg>

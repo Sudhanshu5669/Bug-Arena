@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- Leafcutter Ant — top-down, facing up. A workmanlike brown ant almost buried
+       under the big cut leaf it carries overhead like a shield. The leaf is the
+       silhouette: it reads instantly, even at sprite size. -->
+  <defs>
+    <radialGradient id="lcGaster" cx="42%" cy="28%" r="80%">
+      <stop offset="0%" stop-color="#8a6a3e"/>
+      <stop offset="55%" stop-color="#5c431f"/>
+      <stop offset="100%" stop-color="#2c1f0d"/>
+    </radialGradient>
+    <radialGradient id="lcThorax" cx="42%" cy="30%" r="82%">
+      <stop offset="0%" stop-color="#7d5f36"/>
+      <stop offset="100%" stop-color="#33240f"/>
+    </radialGradient>
+    <linearGradient id="lcLeaf" x1="20%" y1="100%" x2="80%" y2="0%">
+      <stop offset="0%" stop-color="#3f7d22"/>
+      <stop offset="45%" stop-color="#6fbf37"/>
+      <stop offset="100%" stop-color="#a8e05c"/>
+    </linearGradient>
+  </defs>
+
+  <!-- legs + antennae, splayed wide to brace the load -->
+  <g fill="none" stroke="#26461a" stroke-width="3.6" stroke-linecap="round">
+    <g id="lcLimbs">
+      <path d="M56 66 Q36 60 23 50"/>
+      <path d="M56 74 Q35 75 22 78"/>
+      <path d="M56 82 Q37 92 27 103"/>
+      <path d="M59 47 Q52 37 48 28"/>
+    </g>
+    <use href="#lcLimbs" transform="matrix(-1 0 0 1 128 0)"/>
+  </g>
+
+  <!-- body: head / thorax / gaster, sitting low so the leaf dominates -->
+  <ellipse cx="64" cy="98" rx="15" ry="19" fill="url(#lcGaster)" stroke="#26461a" stroke-width="3.2"/>
+  <ellipse cx="64" cy="73" rx="10.5" ry="12" fill="url(#lcThorax)" stroke="#26461a" stroke-width="3.2"/>
+  <circle cx="64" cy="53" r="10.5" fill="url(#lcThorax)" stroke="#26461a" stroke-width="3.2"/>
+
+  <!-- gaster segment cinch -->
+  <path d="M51 95 Q64 102 77 95" fill="none" stroke="#241a08" stroke-width="2" opacity="0.5"/>
+
+  <!-- shearing mandibles, gripping the leaf stem -->
+  <g fill="none" stroke="#26461a" stroke-width="3" stroke-linecap="round">
+    <path d="M58 45 Q54 39 55 34"/>
+    <path d="M70 45 Q74 39 73 34"/>
+  </g>
+
+  <!-- eyes (peeking out from under the leaf) -->
+  <circle cx="58" cy="53" r="2.3" fill="#180f04"/>
+  <circle cx="70" cy="53" r="2.3" fill="#180f04"/>
+  <circle cx="58.7" cy="52.2" r="0.9" fill="#e8f5c8" opacity="0.85"/>
+
+  <!-- the cut leaf, held overhead: drop shadow, blade, midrib, veins, cut edge -->
+  <g transform="rotate(-14 64 34)">
+    <path d="M64 4 C 88 12 98 30 92 50 C 86 66 72 68 64 66 C 56 68 42 66 36 50 C 30 30 40 12 64 4 Z"
+          fill="rgba(0,0,0,0.28)" transform="translate(2.5 4)"/>
+    <path d="M64 4 C 88 12 98 30 92 50 C 86 66 72 68 64 66 C 56 68 42 66 36 50 C 30 30 40 12 64 4 Z"
+          fill="url(#lcLeaf)" stroke="#26461a" stroke-width="3"/>
+    <!-- midrib -->
+    <path d="M64 8 L64 65" fill="none" stroke="#2f5c19" stroke-width="2.4" opacity="0.75"/>
+    <!-- veins -->
+    <g fill="none" stroke="#2f5c19" stroke-width="1.5" opacity="0.55">
+      <path d="M64 20 Q77 22 84 32"/>
+      <path d="M64 34 Q78 37 85 46"/>
+      <path d="M64 48 Q75 51 80 58"/>
+      <path d="M64 20 Q51 22 44 32"/>
+      <path d="M64 34 Q50 37 43 46"/>
+      <path d="M64 48 Q53 51 48 58"/>
+    </g>
+    <!-- the ragged bite the ant cut out of the edge -->
+    <path d="M84 16 q-7 5 -2 11 q-8 -1 -5 8" fill="none" stroke="#2f5c19" stroke-width="2" opacity="0.6"/>
+    <!-- sheen -->
+    <ellipse cx="52" cy="24" rx="9" ry="14" fill="#ffffff" opacity="0.16" transform="rotate(-20 52 24)"/>
+  </g>
+</svg>

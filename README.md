@@ -43,9 +43,10 @@ node examples/headless.js 12345 passive    # passive mode
 | `engine/config.js` | Default config + deep-merge. Every battle parameter is config-driven. |
 | `engine/{agent,rng,constants}.js` | Agent state, seeded PRNG, shared enums. |
 | `species/registry.js` | The factory the engine spawns from. `registerSpecies`, `getSpecies`, `getCatalog`. |
-| `species/{fireAnt,spider,mantis}.js` | One file per species: stats + data-only visual descriptor + behaviour hooks. Self-registers on import. |
+| `species/*.js` | One file per species (24 of them): stats + data-only `visual` and `sfx` descriptors + behaviour hooks. Self-registers on import. |
 | `render/rendererAbstraction.js` | `drawAgent(ctx, agent, visual)` switches on `visual.type` (shape today, sprite-ready). Pure canvas calls → works in browser **and** node-canvas. |
 | `render/canvasRenderer.js` | Browser scene composition (walls, food, health bars, status halos, FX). A pure snapshot subscriber. |
+| `render/audio.js` | The sound layer: synthesizes each species' `sfx` recipes with Web Audio. Zero audio files. Also a pure snapshot subscriber. |
 | `server/server.js` | **Dev tool only.** Runs the engine and streams snapshots to the browser over WebSocket. Not the future public API. |
 | `public/` | The preview page + client (renders state; contains no simulation logic). |
 | `examples/headless.js` | Proof the engine runs with no browser. |
@@ -121,14 +122,145 @@ engine** — it only subscribes to snapshots. Key pieces:
 - **Grounding & identity.** Every agent gets a soft **drop-shadow ellipse** and a
   **team-colored footprint ring/glow** (blue = A, red = B) drawn *under* the
   sprite — team is readable even when both sides use the same species art.
-- **Readable actions (no sound):** squash-and-stretch bounce while moving, a
-  bright **attack flash** + lunge pop, `CRIT` popups, web/dash strands, and a dust
-  **poof** on death.
+- **Readable actions:** squash-and-stretch bounce while moving, a bright **attack
+  flash** + lunge pop, floating damage numbers, ability tags, wind-up telegraphs,
+  web/dash strands, and a dust **poof** on death.
+
+## Shooting it for short-form video
+
+The engine being watchable is a separate problem from the engine being correct, so
+it gets measured separately. Battles were instrumented as *video* — hook time,
+dead air, event density, how close the finish was — and the numbers drove these
+changes. Before → after, 120 battles per mode, aggressive:
+
+| Metric | Before | After | Why it matters |
+|---|---|---|---|
+| Time to first kill | 4.8s | **2.9s** | a Shorts viewer decides in the first seconds |
+| First kill later than 4s | 98% | **4%** | the opening was pure walking |
+| Longest dead air | 3.6s | **2.5s** | stretches where nothing happens lose the viewer |
+| Notable events / sec | 1.94 | **2.19** | density of things worth watching |
+| Winner kept … of its team | — | **45%** | lower = the fight was actually close |
+| Nail-biters (winner kept <30%) | — | **27%** | fights that come down to the wire |
+
+**Framing.** There are two render targets — `wide` (1280×720) and `short`
+(720×1280) — switchable live. Aspect isn't just a crop: a landscape arena
+letterboxed into 9:16 wastes most of the screen, so Shorts mode also asks the
+engine for a **portrait arena**, and `_spawnPosition` lines the armies up along
+whichever axis is longer. A tall arena therefore fights top-vs-bottom
+automatically, with no species or renderer changes.
+
+**Action camera** (`_updateCamera`). A static camera framed the whole arena, so
+the fight collapsed into a knot in the middle of a lot of empty sand and the bugs
+read as specks. The camera now tracks combat and zooms in on it:
+
+- recent attacks/deaths/abilities are recorded as a decaying **heat** field;
+- it locks onto the **densest cluster** of heat, not the average — when a battle
+  splits in two, the mean lands in the empty gap and frames neither;
+- only bugs near that cluster affect the framing, so one forager wandering off
+  can't drag the shot wide;
+- pan and zoom are exponentially smoothed (zoom slower than pan, so rapid kills
+  don't pump the frame), and clamped to the arena edges.
+
+Because the camera zooms, the background is baked in **two** pieces: the arena
+floor at scene resolution (drawn through the camera transform, so it pans and
+zooms with the bugs standing on it) and the stadium surround in canvas space.
+
+**Legibility.** At the climax of a fight a dozen ability tags, damage numbers and
+K.O.s used to land on the same spot and smear into unreadable mush. Now:
+
+- combat text is drawn in **canvas space** at a constant size, so zoom never
+  inflates it;
+- repeats of the same ability nearby fold into one tag as `×N`, and concurrent
+  tags are capped;
+- overlapping labels are nudged apart vertically before drawing;
+- per-unit status chips are **suppressed during a big melee** (a team-wide buff
+  paints the same chip over every unit) and reappear once the field thins to a
+  readable duel; health bars and chips are scaled by `1/cameraScale` to hold a
+  constant on-screen size.
+
+**Showreel** (toggle: `🎬 Showreel`). A battle is packaged as a piece of
+short-form video without the simulation knowing anything about it — it's a
+renderer-only state machine (`intro → live → replay → outro`):
+
+- an **intro "VS" card** over the opening — each team's roster with species
+  swatches, holding then fading off just as the armies make contact. It only
+  plays at a genuine battle *start*: the live-preview socket reconnects and
+  replays the current snapshot, so if the first frame after an init is already
+  underway (`snapshot.time > 1.2`) the card is skipped and it drops into live;
+- a **slow-motion instant replay** of the killing blow — the last ~1.2s is kept
+  in a ring buffer and scrubbed back at 0.3×, with the camera punched in on where
+  the final kill landed and a `◉ REPLAY` badge in the corner;
+- an **outro winner card** — `VICTORY / TEAM A / WINS` in the team colour over a
+  stat strip (duration · kills · survivors), read straight from the summary the
+  engine attaches to the final snapshot.
+
+It's toggleable and off-safe: with the showreel off, the renderer plays the raw
+snapshot stream and the plain DOM result overlay announces the winner instead (so
+the two never double up). The dev server's auto-restart waits long enough (9s) for
+the replay and winner card to finish before the next battle begins.
+
+**Pacing knobs** live in config, so none of this is baked into the simulation:
+
+```js
+teams: { startGap: 300 },   // px between the front lines at the opening whistle
+drama: {
+  comeback: true,           // rubber-band an outnumbered team (see below)
+  minDeficit: 1.25, fullDeficit: 3,
+  maxDamageBonus: 1.0, maxResist: 0.4,
+}
+```
+
+`drama.comeback` is the honest one to flag: a straight fight snowballs, because
+the side with more units concentrates more damage and widens the gap, so ~72% of
+battles were decided at first contact. Scaling an outnumbered team's power by its
+deficit turns those into real last stands. It is **deliberately artificial** —
+turn it off for clean balance measurements, leave it on for anything anyone
+watches. Passive mode still runs long (avg 33s, 18% over 45s); **aggressive is
+the Shorts-friendly mode** at ~21s.
+
+## Sound layer (`render/audio.js`)
+
+Sound is treated **exactly like art**: a species declares a data-only descriptor
+and a presentation module realizes it. The engine never knows sound exists — it
+rides the same catalog the visuals do, and `client.js` routes snapshot events to
+it. Mute/volume live in the Controls card.
+
+**There are no audio files.** Every sound is *synthesized* at play time from a
+small recipe, so the repo stays asset-free and a species' voice is a few lines in
+its own file. A recipe is a list of layers — an oscillator (`src:'tone'`, with an
+optional `vibrato` wobble) or filtered white noise (`src:'noise'`, where `f0→f1`
+glides the **filter cutoff**, which is what turns flat noise into a bite, a hiss,
+or a steam blast):
+
+```js
+sfx: {
+  attack:  [{ src:'noise', filter:'bandpass', f0:2800, f1:1400, q:6, dur:0.055, gain:0.3 }],
+  ability: [
+    { src:'noise', filter:'bandpass', f0:900, f1:3400, q:1.5, dur:0.3,  gain:0.3 },  // flare catching
+    { src:'tone',  wave:'sawtooth',   f0:180, f1:68,          dur:0.3,  gain:0.12, cutoff:800 },
+  ],
+  death:   [{ src:'noise', filter:'lowpass', f0:1800, f1:300, dur:0.24, gain:0.34 }],
+}
+```
+
+Events map to voices as `attack → sfx.attack`, `ability → sfx.ability`,
+`death → sfx.death`; spawns and the battle horn/fanfare are arena-level sounds in
+`ARENA_SFX`. Three things keep a 20-ant melee from becoming noise:
+
+- **Throttling** per species *and* event kind — a dozen ants biting on one tick is
+  one bite sound, not twelve.
+- **A voice budget** capping simultaneous layers, with a timer backstop so a
+  dropped `onended` can never leak slots and permanently silence the arena.
+- **Stereo panning** from each event's arena x-coordinate.
+
+Audio can't legally start before a user gesture, so the context is created lazily
+and resumed on the first click/keypress; a hint in the UI clears itself once it's
+actually running.
 
 ### Sprite asset format (what to generate/source)
 
-Drop real art at `public/assets/sprites/<speciesId>.png` (e.g. `fireAnt.png`,
-`spider.png`, `mantis.png`). Assumed format:
+Author art at `public/assets/sprites/src/<speciesId>.svg` (or drop a raster at
+`public/assets/sprites/<speciesId>.png`). Assumed format:
 
 | Property | Value |
 |----------|-------|
@@ -137,9 +269,15 @@ Drop real art at `public/assets/sprites/<speciesId>.png` (e.g. `fireAnt.png`,
 | View | **top-down**, insect **facing up** (head toward the top edge) |
 | Framing | bug centered, filling ~70% of the canvas |
 
-The bundled placeholder sprites are authored as **SVG** (vector, editable) and
-rasterized to those PNGs — the runtime always consumes PNG, so the browser
-preview and the future headless node-canvas video path stay identical.
+All sprites are authored as **SVG** (vector, editable) in
+`public/assets/sprites/src/`. A species picks how it's loaded:
+
+- `spriteExt: 'svg'` — the browser renders the vector source **directly** (crisp
+  at any zoom, no build step). This is what every species added after the original
+  three uses, and it's the recommended default.
+- *(omitted)* — the rasterized `<id>.png` is loaded instead. Kept for the original
+  Fire Ant / Spider / Mantis, and the path a future headless node-canvas video
+  renderer would use.
 
 ```bash
 # Edit the vector sources:            public/assets/sprites/src/<id>.svg
@@ -152,17 +290,63 @@ faces east instead. Single static image per species today; the `sprite` path
 already accepts `frameWidth`/`animations` for frame-based spritesheets later with
 no engine change.
 
-## The 3 species + their signature abilities
+## The roster — 24 species, each with a power *and* a price
 
-Each species defines ONE signature `ability`, driven by the engine's **hybrid
-trigger gate** (see below). The abilities are mechanically distinct — status
-control vs. burst-mobility vs. damage-over-time — not reskins of "deal damage".
+Species are split into two tiers: **soldier** ants make up the squad, **champion**
+bugs lead it. Every one is built around a real trade-off — nothing is strictly
+better than anything else, and the units with the biggest powers pay the steepest
+prices for them.
 
-| Species | Tier | Signature ability | Effect |
-|---------|------|-------------------|--------|
-| **Fire Ant** | `soldier` | **Ignite** (DoT) | sets the target on fire (burn damage over time); still bursts into an **ember AoE** on death |
-| **Web Spider** | `champion` | **Web Trap** (status) | **immobilizes** the target ~3.5s — it cannot move *or* attack, but takes damage normally |
-| **Blade Mantis** | `champion` | **Dash Strike** (mobility) | lunges at the target and lands a single high-damage blow |
+### Soldier tier (12)
+
+| Species | Power | Price |
+|---------|-------|-------|
+| **Fire Ant** | **Ignite** — burns the target over time; bursts into an **ember AoE** on death | baseline stats across the board |
+| **Bullet Ant** | **Neurotoxic Sting** — sharply slows the victim; hits hard and takes a beating | slow, deliberate swings |
+| **Suicide Ant** | **Poison rupture on death** — a big lingering AoE cloud | frail, negligible bite, and it has to *die* to do anything |
+| **Leafcutter Ant** | **Leaf Bulwark** — nearby allies take **half damage** | 3 damage — near-useless offensively; the canopy also **slows everyone it shelters** |
+| **Army Ant** | **Swarm Bond** — damage scales with allies packed around it; **Raid Call** rallies the column | **feeble when alone** (~58% damage), and the buff collapses as the colony dies |
+| **Trap-Jaw Ant** | **Mandible Snap** — a 27-damage burst that knocks the victim flat | rooted through a 0.5s wind-up, then **catapulted backward out of the fight**, landing stunned |
+| **Honeypot Ant** | **Nectar Seep** heals the colony continuously; **Sweet Rupture** floods it on death | slowest unit in the game, biggest ant hitbox, 3 damage, cannot forage |
+| **Worker Ant** | **Share the Haul** — every morsel it finds heals *everyone* around it. Also what a Queen's brood is made of | the weakest unit in the game, deliberately — see the balance note |
+| **Carpenter Ant** | **Splintered Shell** — reflects a share of every blow back at its attacker; **Harden** halves incoming damage | almost no offence of its own (4 damage), and Harden drops it to 40% speed |
+| **Crazy Ant** | **Formic Spray** — corrodes a whole cluster so they hit **42% weaker** | frail, and 5 damage: it can ruin a fight it can never win |
+| **Harvester Ant** | **Gorge** — every seed eaten *permanently* grows it (+30% damage, +16 HP a stack) | starts as one of the weakest ants; in a fast brawl it never gets going |
+| **Bulldog Ant** | **Killer Leap** — springs the gap onto isolated prey; best eyesight in the tier | hunts ahead of the colony and habitually arrives **alone** |
+
+### Champion tier (12)
+
+| Species | Power | Price |
+|---------|-------|-------|
+| **Web Spider** | **Web Trap** — immobilizes the target *and everyone bunched around it* | only 4 damage: it can lock a fight down but barely win one |
+| **Blade Mantis** | **Dash Strike** — charges a whole lane, damaging and scattering everything | glass cannon; the charge commits it to a direction |
+| **Scorpion** | **Venom Sting** — heavy chip damage over time | must **charge** the sting, and is open to a counter mid-strike |
+| **Hercules Beetle** | **Iron Carapace** (permanent −30% damage taken) + **Horn Toss** | slowest champion by far, biggest target, poor eyesight |
+| **Bombardier Beetle** | **Chemical Blast** — a scalding **cone** that shreds packed formations | **scalds itself every shot**, leaving it *Overheated* (+35% damage taken) |
+| **Hornet** | **Venom Barrage** — 3 rapid stings + venom; fastest unit in the game | frailest champion, and the barrage leaves it **Spent**: half speed, +50% damage taken |
+| **Centipede** | **Coil Crush** — pins a victim helpless; every bite also rakes a **second** enemy | the coil **roots the centipede too** and leaves it 40% more fragile |
+| **Queen Ant** | **Brood** — the only unit that makes more units; lays Worker Ants on a timer, no attack needed | slowest thing in the arena, largest target, 4 damage; she cannot flee anything |
+| **Assassin Bug** | **Lethal Injection** — damage scales with the target's **missing** health, and it drinks back what it deals | frailest champion; against anything at full health it's just a mediocre bug |
+| **Spitting Spider** | The only true **ranged** unit — 155 reach, and **Glue Shot** all but roots what it hits | no melee game whatsoever; anything that closes the gap kills it |
+| **Black Widow** | **Necrotic Bite** — a wound that **blocks all healing**: the hard counter to sustain comps | worst body in the tier; and against a comp with no healing, the trait does nothing |
+| **Antlion** | **Sand Pit** — drags *every* nearby enemy in and roots them; the best setup tool in the game | slowest champion, worst eyesight, and it can barely capitalise on its own opening |
+
+> **Balance note.** Tuned with a full round-robin per tier (12×12 each, ~2k
+> battles), plus mixed-squad tests and a 300-battle soak. Where things landed:
+>
+> - Two **pre-existing** outliers were left alone deliberately, since rebalancing
+>   the original roster wasn't in scope: **Bullet Ant** (~90% of soldier mirrors)
+>   and **Blade Mantis** (~98% of champion matchups).
+> - **Support and specialist units score low in same-species mirrors by design** —
+>   a squad of eight Leafcutters deals 3 damage each and literally cannot kill
+>   anything. They're judged on whether they improve a *mixed* squad, and they do.
+> - **Worker Ant is the deliberate floor** (0% in mirrors). Its weakness is
+>   load-bearing: the Queen summons them free and unlimited, so a draftable-good
+>   worker would make her unbeatable. It is meant to be hatched, not drafted.
+> - Some species only work in the right *battle mode*. **Harvester Ant** needs a
+>   forage-paced fight to grow — 20-27 in passive mode versus 7-41 in aggressive.
+>   **Black Widow** is a counter-pick: 38-2 against a healer comp, where other
+>   champions manage 30-8.
 
 ## The ability system (the part built to scale)
 
@@ -229,53 +413,79 @@ and each proc console-logs `[ability] <text>`.
 
 ## Extending it (the three things v1 was designed for)
 
-### 1. Add a 4th species (e.g. Bombardier Beetle) — one file + one line
+### 1. Add a 25th species (e.g. Tiger Beetle) — one file + one line
 
-Create `species/bombardierBeetle.js`:
+Create `species/tigerBeetle.js`. Note that **stats, art and sound are all just
+data** on the same object — a species is one self-contained file:
 
 ```js
 import { registerSpecies } from './registry.js';
 
-const BLAST = { TRIGGER_CHANCE: 0.3, COOLDOWN_SECONDS: 5, DAMAGE: 12, RADIUS: 55 };
+const POUNCE = { TRIGGER_CHANCE: 0.35, COOLDOWN_SECONDS: 5, DAMAGE: 18, RADIUS: 55 };
 
-const bombardierBeetle = {
-  id: 'bombardierBeetle',
-  name: 'Bombardier Beetle',
+const tigerBeetle = {
+  id: 'tigerBeetle',
+  name: 'Tiger Beetle',
   tier: 'champion', // 'soldier' (squad) or 'champion' (leader) — battle setup uses this
-  flavor: 'Sprays a boiling chemical blast that scalds everything in an arc.',
-  stats: { maxHealth: 80, speed: 1.1, size: 13, damage: 3,
-           attackRange: 40, attackCooldown: 70, visionRange: 220 },
-  visual: { type: 'sprite', sprite: 'bombardierBeetle', spriteScale: 2.7, spriteFacing: 'up',
-            shape: 'polygon', color: '#c98a2b', stroke: '#5a3a10', size: 13 }, // shape = fallback
-  // Signature ability: an AoE burst — mechanically distinct from web/dash/ignite.
+  flavor: 'Runs its prey down so fast it outruns its own eyesight.',
+  stats: { maxHealth: 130, speed: 3.0, size: 12, damage: 10,
+           attackRange: 22, attackCooldown: 30, visionRange: 230 },
+  visual: { type: 'sprite', sprite: 'tigerBeetle', spriteExt: 'svg', spriteScale: 2.7,
+            spriteFacing: 'up', shape: 'polygon', color: '#3fa34d', stroke: '#123', size: 12 },
+  // Sound is data too — synthesized, no files. See "Sound layer" above.
+  sfx: {
+    attack:  [{ src: 'noise', filter: 'bandpass', f0: 3000, f1: 1600, q: 8, dur: 0.04, gain: 0.24 }],
+    ability: [{ src: 'tone', wave: 'sawtooth', f0: 240, f1: 700, dur: 0.2, gain: 0.18, cutoff: 2200 }],
+    death:   [{ src: 'noise', filter: 'lowpass', f0: 1300, f1: 220, dur: 0.26, gain: 0.3 }],
+  },
   ability: {
-    name: 'Chemical Blast',
-    triggerChance: BLAST.TRIGGER_CHANCE,
-    cooldownSeconds: BLAST.COOLDOWN_SECONDS,
-    log: (self) => `${self.species.name} sprayed a chemical blast!`,
+    name: 'Pounce',
+    triggerChance: POUNCE.TRIGGER_CHANCE,
+    cooldownSeconds: POUNCE.COOLDOWN_SECONDS,
+    log: (self) => `${self.species.name} ran its prey down!`,
     onTrigger(self, target, ctx) {
-      for (const e of ctx.enemiesInRadius(self, BLAST.RADIUS)) {
-        ctx.dealDamage(e, BLAST.DAMAGE, { sourceAgent: self, cause: 'chemical_blast' });
+      for (const e of ctx.enemiesInRadius(self, POUNCE.RADIUS)) {
+        ctx.dealDamage(e, POUNCE.DAMAGE, { sourceAgent: self, cause: 'pounce' });
       }
-      ctx.spawnEffect({ kind: 'explosion', x: self.x, y: self.y, radius: BLAST.RADIUS, color: '#ffd27a' });
+      ctx.spawnEffect({ kind: 'explosion', x: self.x, y: self.y, radius: POUNCE.RADIUS, color: '#ffd27a' });
     },
   },
   hooks: {},
 };
-export default bombardierBeetle;
-registerSpecies(bombardierBeetle);
+export default tigerBeetle;
+registerSpecies(tigerBeetle);
 ```
 
 Then add **one import line** to `species/index.js`:
 
 ```js
-import './bombardierBeetle.js';
+import './tigerBeetle.js';
 ```
 
-That's it. No engine change. The beetle spawns, fights, draws, appears in the
-roster/catalog/kill-feed, and is reproducible — automatically. (Confirmed by the
-existing three species: the engine spawns from `registry.listSpecies()` and calls
-hooks generically.)
+That's it. No engine change. The beetle spawns, fights, draws, **sounds like
+itself**, appears in the roster/catalog/kill-feed/fight-builder, and is
+reproducible — automatically. (Confirmed by the 24 shipped species: the engine
+spawns from `registry.listSpecies()` and calls hooks generically.)
+
+#### The shared vocabulary a new species can draw on
+
+The `ctx` handed to every hook is the only surface species code touches, which is
+what keeps species decoupled from the engine. Beyond queries (`enemiesInRadius`,
+`alliesInRadius`, `nearestEnemy`, `enemiesInCone`, `distance`) and actions
+(`dealDamage`, `heal`, `applyStatus`, `lunge`, `push`, `dashThrough`,
+`spawnEffect`), statuses themselves are generic and compose by multiplication:
+
+| Status field | Meaning |
+|--------------|---------|
+| `speedMultiplier` | movement scaling (`0` = rooted) |
+| `damageTakenMultiplier` | `<1` armour, `>1` vulnerability — applied to **every** damage source |
+| `damageDealtMultiplier` | `<1` weakened, `>1` empowered |
+| `damagePerSecond` | damage-over-time (authored per second, ticked per frame) |
+| `preventMove` / `preventAttack` | hard root / silence (both = full immobilize) |
+| `permanent` | an innate trait: shown without a ticking countdown |
+
+That's how a Leaf Bulwark (armour + slow), a Swarm Bond (damage scaling), and an
+Overheat (self-inflicted vulnerability) are all the same mechanism.
 
 ### 2. Add a real sprite-based species — no engine change
 

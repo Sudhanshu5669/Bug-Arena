@@ -60,6 +60,20 @@ const fireAnt = {
     },
   },
 
+  // Sound signature: dry crackle up top, with a soft roar under the ignite.
+  sfx: {
+    attack: [{ src: 'noise', filter: 'bandpass', f0: 2800, f1: 1400, q: 6, dur: 0.055, gain: 0.3 }],
+    ability: [
+      { src: 'noise', filter: 'bandpass', f0: 900, f1: 3400, q: 1.5, dur: 0.3, gain: 0.3 }, // the flare catching
+      { src: 'noise', filter: 'highpass', f0: 4200, dur: 0.2, gain: 0.16, t0: 0.06 }, // crackle
+      { src: 'tone', wave: 'sawtooth', f0: 180, f1: 68, dur: 0.3, gain: 0.12, cutoff: 800 },
+    ],
+    death: [
+      { src: 'noise', filter: 'lowpass', f0: 1800, f1: 300, dur: 0.24, gain: 0.34 },
+      { src: 'tone', wave: 'sine', f0: 220, f1: 58, dur: 0.26, gain: 0.18 },
+    ],
+  },
+
   hooks: {
     // Death throes: a small AoE ember burst against nearby enemies (a death
     // trigger, distinct from the gated signature ability above).

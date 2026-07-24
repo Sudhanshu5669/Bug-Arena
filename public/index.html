@@ -53,6 +53,14 @@
         display: block;
         border-radius: 8px;
         background: #0a0806;
+        margin: 0 auto;
+      }
+      /* 9:16 Shorts framing — keep the tall canvas centered and on-screen. */
+      .stage.portrait canvas {
+        aspect-ratio: 9 / 16;
+        width: auto;
+        max-width: 100%;
+        height: min(78vh, 720px);
       }
       .overlay {
         position: absolute;
@@ -116,6 +124,13 @@
       .seg button { border: none; border-radius: 0; }
       .seg button.active { background: var(--a); color: #04121f; }
       .status-pill { font-size: 11px; color: var(--muted); }
+
+      /* --- Sound controls --- */
+      .sound-row { display: flex; align-items: center; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+      .sound-row button.muted { opacity: 0.55; }
+      .sound-row input[type="range"] { flex: 1; min-width: 90px; accent-color: var(--accent); }
+      .sound-hint { font-size: 10px; color: var(--muted); flex-basis: 100%; }
+      .sound-hint.hidden { display: none; }
 
       /* --- Fight builder --- */
       .builder { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
@@ -199,6 +214,19 @@
               <button id="mode-agg">Aggressive</button>
               <button id="mode-pass" class="active">Passive</button>
             </span>
+          </div>
+          <div class="sound-row">
+            <span class="seg">
+              <button id="fmt-wide" class="active" title="16:9 desktop preview">16:9</button>
+              <button id="fmt-short" title="9:16 — YouTube Shorts framing">9:16</button>
+            </span>
+            <button id="btn-camera" title="Action camera follows and zooms on the fight">🎥 Action cam</button>
+            <button id="btn-showreel" title="Intro VS card, slow-mo replay of the killing blow, and a winner card">🎬 Showreel: on</button>
+          </div>
+          <div class="sound-row">
+            <button id="btn-sound" title="Toggle sound">🔊 Sound</button>
+            <input id="vol" type="range" min="0" max="100" value="60" aria-label="Volume" />
+            <span class="sound-hint" id="sound-hint">click anywhere to enable audio</span>
           </div>
           <div class="meta"><span id="meta-seed">seed —</span></div>
         </div>

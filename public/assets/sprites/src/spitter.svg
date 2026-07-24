@@ -1,0 +1,78 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- Spitting Spider — top-down, facing up. Pale sticky teal, with the hugely
+       swollen glue-gland cephalothorax the real species has, fangs aimed forward
+       like muzzles, and a gob of adhesive already forming at the tips. -->
+  <defs>
+    <radialGradient id="spCeph" cx="40%" cy="26%" r="82%">
+      <stop offset="0%" stop-color="#8fe8dc"/>
+      <stop offset="48%" stop-color="#4fb3a8"/>
+      <stop offset="100%" stop-color="#123c38"/>
+    </radialGradient>
+    <radialGradient id="spAbd" cx="42%" cy="28%" r="82%">
+      <stop offset="0%" stop-color="#7ad4c8"/>
+      <stop offset="55%" stop-color="#3d9c92"/>
+      <stop offset="100%" stop-color="#0e3230"/>
+    </radialGradient>
+    <radialGradient id="spGlue" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="rgba(180,255,244,0.6)"/>
+      <stop offset="100%" stop-color="rgba(140,240,228,0)"/>
+    </radialGradient>
+  </defs>
+
+  <!-- eight long legs, held wide and low -->
+  <g fill="none" stroke="#12403c" stroke-width="3.2" stroke-linecap="round">
+    <g id="spLegs">
+      <path d="M52 56 Q30 44 16 30"/>
+      <path d="M51 66 Q28 62 12 58"/>
+      <path d="M52 76 Q30 80 15 88"/>
+      <path d="M54 86 Q35 96 24 110"/>
+    </g>
+    <use href="#spLegs" transform="matrix(-1 0 0 1 128 0)"/>
+  </g>
+  <!-- leg joints -->
+  <g fill="#12403c" opacity="0.8">
+    <circle cx="30" cy="44" r="2.2"/><circle cx="28" cy="62" r="2.2"/>
+    <circle cx="30" cy="80" r="2.2"/><circle cx="35" cy="96" r="2.2"/>
+    <circle cx="98" cy="44" r="2.2"/><circle cx="100" cy="62" r="2.2"/>
+    <circle cx="98" cy="80" r="2.2"/><circle cx="93" cy="96" r="2.2"/>
+  </g>
+
+  <!-- abdomen -->
+  <ellipse cx="64" cy="88" rx="16" ry="20" fill="url(#spAbd)" stroke="#12403c" stroke-width="3.2"/>
+  <g fill="none" stroke="#0e3230" stroke-width="1.6" opacity="0.5">
+    <path d="M50 84 Q64 90 78 84"/>
+    <path d="M52 96 Q64 101 76 96"/>
+  </g>
+
+  <!-- THE GLUE GLAND: a hugely swollen cephalothorax, visibly full -->
+  <ellipse cx="64" cy="54" rx="19" ry="18" fill="url(#spCeph)" stroke="#12403c" stroke-width="3.4"/>
+  <!-- the reservoir showing through -->
+  <ellipse cx="64" cy="56" rx="11" ry="10" fill="#b8fff2" opacity="0.32"/>
+  <circle cx="57" cy="48" r="4" fill="#ffffff" opacity="0.4"/>
+
+  <!-- forward-aimed fangs, like a pair of muzzles -->
+  <g stroke="#12403c" stroke-linecap="round" fill="none">
+    <path d="M56 38 L52 22" stroke-width="6"/>
+    <path d="M72 38 L76 22" stroke-width="6"/>
+    <path d="M56 38 L52 22" stroke-width="2.4" stroke="#6fd0c4"/>
+    <path d="M72 38 L76 22" stroke-width="2.4" stroke="#6fd0c4"/>
+  </g>
+  <!-- adhesive already beading at the tips, mid-spit -->
+  <circle cx="52" cy="19" r="5" fill="url(#spGlue)"/>
+  <circle cx="76" cy="19" r="5" fill="url(#spGlue)"/>
+  <circle cx="52" cy="19" r="2.4" fill="#c8fff4" opacity="0.85"/>
+  <circle cx="76" cy="19" r="2.4" fill="#c8fff4" opacity="0.85"/>
+  <!-- strands trailing forward -->
+  <g fill="none" stroke="#c8fff4" stroke-width="1.4" opacity="0.5" stroke-linecap="round">
+    <path d="M52 15 Q54 8 51 2"/>
+    <path d="M76 15 Q74 8 77 2"/>
+  </g>
+
+  <!-- the six eyes in their three pairs -->
+  <g fill="#08211f">
+    <circle cx="59" cy="42" r="2.4"/><circle cx="69" cy="42" r="2.4"/>
+    <circle cx="55" cy="47" r="1.9"/><circle cx="73" cy="47" r="1.9"/>
+    <circle cx="61" cy="37" r="1.5"/><circle cx="67" cy="37" r="1.5"/>
+  </g>
+  <circle cx="58.2" cy="41" r="0.9" fill="#d8fff8" opacity="0.85"/>
+</svg>

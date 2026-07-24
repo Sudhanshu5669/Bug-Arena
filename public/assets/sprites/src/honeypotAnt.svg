@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- Honeypot Ant — top-down, facing up. A tiny ant welded to the front of an
+       enormous translucent globe of nectar. The gaster is the character: stretched
+       so taut the segment plates have pulled apart into amber windows. -->
+  <defs>
+    <radialGradient id="hpGlobe" cx="38%" cy="30%" r="78%">
+      <stop offset="0%" stop-color="#ffe9a8"/>
+      <stop offset="38%" stop-color="#f7c942"/>
+      <stop offset="78%" stop-color="#dc9410"/>
+      <stop offset="100%" stop-color="#8a5605"/>
+    </radialGradient>
+    <radialGradient id="hpBody" cx="42%" cy="30%" r="82%">
+      <stop offset="0%" stop-color="#b98536"/>
+      <stop offset="100%" stop-color="#4a2d05"/>
+    </radialGradient>
+    <radialGradient id="hpGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="rgba(255,208,90,0.42)"/>
+      <stop offset="100%" stop-color="rgba(255,208,90,0)"/>
+    </radialGradient>
+  </defs>
+
+  <!-- warm nectar glow around the cask -->
+  <circle cx="64" cy="86" r="42" fill="url(#hpGlow)"/>
+
+  <!-- little legs, splayed and overloaded (they barely reach the ground) -->
+  <g fill="none" stroke="#4a2d05" stroke-width="3" stroke-linecap="round">
+    <g id="hpLimbs">
+      <path d="M56 46 Q40 40 30 32"/>
+      <path d="M55 53 Q38 54 27 55"/>
+      <path d="M56 60 Q41 68 33 78"/>
+      <path d="M59 27 Q53 17 49 8"/>
+    </g>
+    <use href="#hpLimbs" transform="matrix(-1 0 0 1 128 0)"/>
+  </g>
+
+  <!-- thin mandibles -->
+  <g fill="none" stroke="#4a2d05" stroke-width="2.2" stroke-linecap="round">
+    <path d="M60 24 Q56 19 52 18"/>
+    <path d="M68 24 Q72 19 76 18"/>
+  </g>
+
+  <!-- THE CASK: an oversized globe of stored nectar -->
+  <circle cx="64" cy="86" r="30" fill="url(#hpGlobe)" stroke="#6b4407" stroke-width="3.4"/>
+
+  <!-- stretched segment plates: thin chitin bands pulled apart over the globe -->
+  <g fill="none" stroke="#7d5209" stroke-width="3" opacity="0.62" stroke-linecap="round">
+    <path d="M37 74 Q64 84 91 74"/>
+    <path d="M35 87 Q64 97 93 87"/>
+    <path d="M41 100 Q64 109 87 100"/>
+  </g>
+
+  <!-- nectar highlights: a big specular and a few suspended bubbles -->
+  <ellipse cx="52" cy="72" rx="10" ry="13" fill="#ffffff" opacity="0.34" transform="rotate(-24 52 72)"/>
+  <circle cx="76" cy="94" r="4.4" fill="#fff3c0" opacity="0.55"/>
+  <circle cx="68" cy="103" r="3" fill="#fff3c0" opacity="0.45"/>
+  <circle cx="80" cy="79" r="2.4" fill="#fff8dc" opacity="0.6"/>
+
+  <!-- the small ant up front: thorax + head, dwarfed by its own abdomen -->
+  <ellipse cx="64" cy="49" rx="8.5" ry="10" fill="url(#hpBody)" stroke="#4a2d05" stroke-width="2.8"/>
+  <circle cx="64" cy="32" r="9" fill="url(#hpBody)" stroke="#4a2d05" stroke-width="2.8"/>
+
+  <!-- eyes -->
+  <circle cx="60" cy="32" r="2" fill="#1d1102"/>
+  <circle cx="68" cy="32" r="2" fill="#1d1102"/>
+  <circle cx="60.6" cy="31.3" r="0.8" fill="#ffeec0" opacity="0.85"/>
+</svg>

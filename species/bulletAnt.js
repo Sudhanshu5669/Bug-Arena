@@ -63,6 +63,22 @@ const bulletAnt = {
     },
   },
 
+  // Sound signature: weight. Every hit lands like a dropped stone.
+  sfx: {
+    attack: [
+      { src: 'tone', wave: 'sine', f0: 120, f1: 48, dur: 0.12, gain: 0.3 },
+      { src: 'noise', filter: 'lowpass', f0: 1200, f1: 400, dur: 0.06, gain: 0.24 },
+    ],
+    ability: [
+      { src: 'tone', wave: 'sawtooth', f0: 520, f1: 130, dur: 0.32, gain: 0.18, cutoff: 1400 },
+      { src: 'noise', filter: 'bandpass', f0: 2200, f1: 700, q: 8, dur: 0.22, gain: 0.2 },
+    ],
+    death: [
+      { src: 'noise', filter: 'lowpass', f0: 900, f1: 180, dur: 0.3, gain: 0.34 },
+      { src: 'tone', wave: 'sine', f0: 90, f1: 40, dur: 0.3, gain: 0.2 },
+    ],
+  },
+
   hooks: {},
 };
 

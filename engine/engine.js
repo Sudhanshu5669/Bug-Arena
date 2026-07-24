@@ -131,9 +131,21 @@ export class BugArenaEngine extends EventEmitter {
           (o) => o.alive && o.team === agent.team && o !== agent && engine._dist(agent, o) <= r
         ),
       nearestEnemy: (agent, maxR = Infinity) => engine._nearestEnemy(agent, maxR),
+      // Enemies inside a cone: within `range` of `agent` AND within `halfAngle`
+      // radians of the (dirX, dirY) heading. Drives spray/breath-type abilities.
+      enemiesInCone: (agent, dirX, dirY, range, halfAngle) =>
+        engine._enemiesInCone(agent, dirX, dirY, range, halfAngle),
 
       dealDamage: (target, amount, meta = {}) => engine._applyDamage(target, amount, meta),
       heal: (agent, amount) => engine._heal(agent, amount),
+      // Birth new units onto `summoner`'s team near it. Bounded by config.maxAgents
+      // so no amount of summoning can run the simulation away. Returns the agents
+      // actually created (possibly fewer than asked for, or none).
+      summon: (summoner, speciesId, opts = {}) => engine._summon(summoner, speciesId, opts),
+      /** Living count of one species on an agent's team — lets a summoner cap its own brood. */
+      countAllies: (agent, speciesId) =>
+        engine.agents.filter((o) => o.alive && o.team === agent.team && o.speciesId === speciesId)
+          .length,
       applyStatus: (target, descriptor, source = null) =>
         engine._applyStatus(target, descriptor, source),
 
@@ -142,6 +154,9 @@ export class BugArenaEngine extends EventEmitter {
       // Mobility helper: snap `agent` toward `target` by up to `dist` px without
       // overlapping into it. Used by dash-type abilities.
       lunge: (agent, target, dist) => engine._lunge(agent, target, dist),
+      // Shove ANY agent (including the caster itself) `dist` px along a heading,
+      // clamped inside the arena. Powers self-recoil and throw-type abilities.
+      push: (agent, dirX, dirY, dist) => engine._push(agent, dirX, dirY, dist),
       // Charge helper: drive `agent` a long way in `target`'s direction, plowing
       // through every enemy along the swept line — each takes damage + knockback.
       // Returns { startX, startY, endX, endY, hit } for the caller's dash VFX.
@@ -234,18 +249,41 @@ export class BugArenaEngine extends EventEmitter {
     return ids.map((id) => registry.getSpecies(id));
   }
 
+  /**
+   * Where a unit starts.
+   *
+   * The two armies always face off along the arena's LONGER axis, and rank up
+   * across the shorter one. In a wide arena that's the familiar left-vs-right; in
+   * a tall (9:16 / Shorts) arena it automatically becomes top-vs-bottom, which is
+   * what keeps a portrait frame full of fight instead of empty floor.
+   *
+   * The front lines sit `startGap` apart around the centre rather than against
+   * opposite walls — see `teams.startGap` for why that matters for pacing.
+   */
   _spawnPosition(team, i, count, isChampion) {
     const { width, height, wallThickness: t } = this.config.arena;
-    const top = t + 30;
-    const bottom = height - t - 30;
-    const laneY = count > 1 ? top + ((bottom - top) * i) / (count - 1) : (top + bottom) / 2;
-    const jitterY = (this.rng() - 0.5) * 40;
-    const y = Math.max(top, Math.min(bottom, laneY + jitterY));
+    const vertical = height > width; // portrait arena => armies meet top vs bottom
 
-    // Soldiers form up near their wall; the champion leads from further forward.
-    const depth = isChampion ? 120 + this.rng() * 40 : 20 + this.rng() * 70;
-    const x = team === TEAMS.A ? t + depth : width - t - depth;
-    return { x, y };
+    const advanceLen = vertical ? height : width; // along the facing axis
+    const spreadLen = vertical ? width : height; // across the line
+
+    // Rank up across the short axis, evenly spaced with a little jitter.
+    const near = t + 30;
+    const far = spreadLen - t - 30;
+    const lane = count > 1 ? near + ((far - near) * i) / (count - 1) : (near + far) / 2;
+    const across = Math.max(near, Math.min(far, lane + (this.rng() - 0.5) * 40));
+
+    // Position along the facing axis: champions on the line, soldiers behind it.
+    const gap = Math.min(this.config.teams.startGap ?? 300, advanceLen - 2 * t - 80);
+    const front = Math.max(t + 40, (advanceLen - gap) / 2);
+    const back = isChampion ? 0 : 15 + this.rng() * 55;
+    const pad = t + 20;
+    const along =
+      team === TEAMS.A
+        ? Math.max(pad, front - back)
+        : Math.min(advanceLen - pad, advanceLen - front + back);
+
+    return vertical ? { x: across, y: along } : { x: along, y: across };
   }
 
   _spawnAgent(team, species, x, y) {
@@ -335,6 +373,7 @@ export class BugArenaEngine extends EventEmitter {
     if (this.status !== 'running') return this.lastSnapshot;
     this.tick++;
 
+    this._updateComeback(); // rubber-band an outnumbered team (drama, not balance)
     this._updateStatuses(); // burn/web etc. (may cause deaths)
     this._resolveCasts(); // release any ability whose wind-up has elapsed (the "launch")
     this._runAgentAI(); // decide + move + attack (may cause deaths)
@@ -354,7 +393,6 @@ export class BugArenaEngine extends EventEmitter {
   _updateStatuses() {
     for (const agent of this.agents) {
       if (!agent.alive) continue;
-      let mult = 1;
       for (const s of agent.statuses) {
         s.remaining -= 1;
         if (s.damagePerTick > 0 && agent.alive) {
@@ -365,8 +403,81 @@ export class BugArenaEngine extends EventEmitter {
         }
       }
       agent.statuses = agent.statuses.filter((s) => s.remaining > 0);
-      for (const s of agent.statuses) mult *= s.speedMultiplier;
-      agent.speedMultiplier = mult;
+      // Every multiplier is the PRODUCT of its active statuses, so a shield and a
+      // vulnerability stack sensibly and expiry restores the agent automatically.
+      let speed = 1;
+      let taken = 1;
+      let dealt = 1;
+      let rooted = false;
+      for (const s of agent.statuses) {
+        speed *= s.speedMultiplier;
+        taken *= s.damageTakenMultiplier;
+        dealt *= s.damageDealtMultiplier;
+        if (s.preventMove) rooted = true;
+      }
+      // `preventMove` is absolute: a rooted agent's speed is zero no matter what
+      // else is on it (so a root can't be out-sped by a rally buff).
+      agent.speedMultiplier = rooted ? 0 : speed;
+      agent.damageTakenMultiplier = taken;
+      agent.damageDealtMultiplier = dealt;
+    }
+  }
+
+  /**
+   * Comeback ("last colony standing") — a generic, species-agnostic rubber band.
+   *
+   * A straight fight snowballs: the side with more units concentrates more damage,
+   * kills faster, and widens the gap. Left alone the winner is effectively decided
+   * at first contact, which makes for a dull watch. This scales an outnumbered
+   * team's power with how badly it's losing, so a 2-vs-7 is a desperate last stand
+   * rather than a formality — and comebacks actually happen.
+   *
+   * It is applied as an ordinary status, so it stacks with everything else through
+   * the same multiplier system and is visible on screen like any other buff.
+   */
+  _updateComeback() {
+    const d = this.config.drama;
+    if (!d?.comeback) return;
+    if (this.tick % (d.comebackEveryTicks ?? 20) !== 0) return;
+
+    const alive = { [TEAMS.A]: 0, [TEAMS.B]: 0 };
+    for (const a of this.agents) if (a.alive) alive[a.team]++;
+
+    for (const team of [TEAMS.A, TEAMS.B]) {
+      const mine = alive[team];
+      const theirs = alive[team === TEAMS.A ? TEAMS.B : TEAMS.A];
+      // Nothing to do for a team that isn't outnumbered (or is already wiped out).
+      const deficit = mine > 0 ? theirs / mine : 0;
+      const members = this.agents.filter((a) => a.alive && a.team === team);
+
+      if (deficit < (d.minDeficit ?? 1.4)) {
+        // Drop the buff the moment the team is back on level terms.
+        for (const a of members) a.statuses = a.statuses.filter((s) => s.type !== 'outnumbered');
+        continue;
+      }
+
+      // Ramp from 0 at `minDeficit` up to full at `fullDeficit`.
+      const lo = d.minDeficit ?? 1.25;
+      const hi = Math.max(lo + 0.1, d.fullDeficit ?? 3);
+      const t = Math.min(1, (deficit - lo) / (hi - lo));
+      const dealt = 1 + (d.maxDamageBonus ?? 0.7) * t;
+      const taken = 1 - (d.maxResist ?? 0.3) * t;
+
+      for (const a of members) {
+        this._applyStatus(
+          a,
+          {
+            type: 'outnumbered',
+            label: `Outnumbered ${theirs}v${mine}`,
+            duration: (d.comebackEveryTicks ?? 20) * 3, // lapses if it stops being refreshed
+            damageDealtMultiplier: dealt,
+            damageTakenMultiplier: taken,
+            permanent: true, // a running state, not a timed debuff — no countdown
+            quiet: true, // refreshed constantly; don't flood the event stream
+          },
+          a
+        );
+      }
     }
   }
 
@@ -585,7 +696,7 @@ export class BugArenaEngine extends EventEmitter {
 
     this._applyStatus(
       agent,
-      { type: 'enraged', label: 'Enraged', duration: this.config.maxTicks + 100 },
+      { type: 'enraged', label: 'Enraged', duration: this.config.maxTicks + 100, permanent: true },
       agent
     );
     this.pushEvent(EVENTS.EFFECT, { kind: 'enrage', x: round(agent.x), y: round(agent.y), team: agent.team });
@@ -605,7 +716,9 @@ export class BugArenaEngine extends EventEmitter {
   // ---------------------------------------------------------------------------
 
   _performAttack(agent, target) {
-    const dmg = agent.stats.damage;
+    // Weapon damage scales with any empower/weaken status on the ATTACKER (the
+    // target's own armour/vulnerability is applied inside `_applyDamage`).
+    const dmg = agent.stats.damage * agent.damageDealtMultiplier;
     const kind = agent.stats.attackRange > 60 ? 'ranged' : 'melee';
     this.pushEvent(EVENTS.ATTACK, {
       attackerId: agent.id,
@@ -764,6 +877,51 @@ export class BugArenaEngine extends EventEmitter {
   }
 
   /**
+   * Shove `agent` `dist` px along the (dirX, dirY) heading, clamped inside the
+   * playable inset. Generic on purpose: a species uses it to recoil ITSELF (the
+   * trap-jaw ant's snap kicks it backward) or to hurl a victim (the beetle's toss).
+   * Returns the travelled segment so the caller can draw the throw.
+   */
+  _push(agent, dirX, dirY, dist) {
+    const len = Math.hypot(dirX, dirY) || 1;
+    const { width, height, wallThickness: t } = this.config.arena;
+    const pad = agent.stats.size + 2;
+    const fromX = agent.x;
+    const fromY = agent.y;
+    const x = Math.max(t + pad, Math.min(width - t - pad, fromX + (dirX / len) * dist));
+    const y = Math.max(t + pad, Math.min(height - t - pad, fromY + (dirY / len) * dist));
+    Body.setPosition(agent.body, { x, y });
+    Body.setVelocity(agent.body, { x: 0, y: 0 });
+    return { fromX, fromY, x, y };
+  }
+
+  /**
+   * Enemies of `agent` inside a cone: within `range` (surface-to-centre) and within
+   * `halfAngle` radians of the (dirX, dirY) heading. Anything essentially on top of
+   * the caster always counts, so a point-blank spray can't miss.
+   */
+  _enemiesInCone(agent, dirX, dirY, range, halfAngle) {
+    const len = Math.hypot(dirX, dirY) || 1;
+    const ux = dirX / len;
+    const uy = dirY / len;
+    const cosLimit = Math.cos(halfAngle);
+    const out = [];
+    for (const o of this.agents) {
+      if (!o.alive || o.team === agent.team) continue;
+      const dx = o.x - agent.x;
+      const dy = o.y - agent.y;
+      const d = Math.hypot(dx, dy);
+      if (d - o.stats.size > range) continue;
+      if (d < agent.stats.size + o.stats.size) {
+        out.push(o); // point blank / overlapping — always caught
+        continue;
+      }
+      if ((dx / d) * ux + (dy / d) * uy >= cosLimit) out.push(o);
+    }
+    return out;
+  }
+
+  /**
    * Charge: drive `agent` a long distance in `target`'s direction and plow through
    * every enemy whose body the swept line touches — each takes `damage` and is
    * knocked clear of the lane. The dasher ends past its foes, not stuck on the
@@ -858,6 +1016,10 @@ export class BugArenaEngine extends EventEmitter {
 
   _applyDamage(target, amount, meta = {}) {
     if (!target.alive || amount <= 0) return;
+    // A single choke point for armour/vulnerability, so EVERY damage source
+    // (weapon hit, ability burst, damage-over-time tick, AoE) respects it.
+    amount *= target.damageTakenMultiplier;
+    if (amount <= 0) return;
     target.health -= amount;
     // Emit a damage signal so the renderer can float a number. Fires for every
     // damage source (weapon hit, ability bonus, DoT tick, AoE) — the renderer
@@ -869,7 +1031,10 @@ export class BugArenaEngine extends EventEmitter {
       y: round(target.y),
       cause: meta.cause ?? meta.kind ?? 'hit',
     });
-    target.species.hooks.on_damaged?.(target, amount, meta.sourceAgent ?? null, this.api);
+    // `meta` is passed through so a hook can tell WHAT hurt it — without that, a
+    // reflect-damage species can't tell a real blow from another reflect and two
+    // of them would bounce damage back and forth down a very deep stack.
+    target.species.hooks.on_damaged?.(target, amount, meta.sourceAgent ?? null, this.api, meta);
     if (target.health <= 0) {
       this._killAgent(target, meta.sourceAgent ?? null, meta.cause ?? meta.kind ?? 'attack');
     }
@@ -877,7 +1042,61 @@ export class BugArenaEngine extends EventEmitter {
 
   _heal(agent, amount) {
     if (!agent.alive) return;
+    // A necrotic/anti-heal status shuts every healing source off at one choke
+    // point, so it counters foraging, aura heals and death bursts alike.
+    if (agent.statuses.some((s) => s.preventHeal)) return;
     agent.health = Math.min(agent.maxHealth, agent.health + amount);
+  }
+
+  /**
+   * Summon: create `count` units of `speciesId` on `summoner`'s team, scattered
+   * within `radius` of it. Generic — the engine has no idea what a "queen" is; it
+   * just knows how to add agents, capped by `config.maxAgents`.
+   *
+   * @returns {Agent[]} the agents actually spawned
+   */
+  _summon(summoner, speciesId, opts = {}) {
+    if (!registry.hasSpecies(speciesId)) return [];
+    const living = this.agents.reduce((n, a) => n + (a.alive ? 1 : 0), 0);
+    const room = Math.max(0, (this.config.maxAgents ?? 220) - living);
+    const count = Math.min(Math.max(0, Math.floor(opts.count ?? 1)), room);
+    if (count === 0) return [];
+
+    const species = registry.getSpecies(speciesId);
+    const radius = opts.radius ?? 40;
+    const { width, height, wallThickness: t } = this.config.arena;
+    const pad = species.stats.size + 2;
+
+    const born = [];
+    for (let i = 0; i < count; i++) {
+      const ang = this.rng() * Math.PI * 2;
+      const d = species.stats.size + summoner.stats.size + this.rng() * radius;
+      const x = Math.max(t + pad, Math.min(width - t - pad, summoner.x + Math.cos(ang) * d));
+      const y = Math.max(t + pad, Math.min(height - t - pad, summoner.y + Math.sin(ang) * d));
+      const agent = this._spawnAgent(summoner.team, species, x, y);
+      born.push(agent);
+
+      // Reuse the reinforcement event/effect: to the HUD, kill feed and audio a
+      // summoned unit IS a new arrival, so it needs no special-casing downstream.
+      this.pushEvent(EVENTS.REINFORCEMENT, {
+        team: summoner.team,
+        speciesId: species.id,
+        speciesName: species.name,
+        tier: species.tier,
+        isBug: species.tier === 'champion',
+        summonedBy: summoner.speciesId,
+        x: round(x),
+        y: round(y),
+      });
+      this.pushEvent(EVENTS.EFFECT, {
+        kind: 'spawn_in',
+        x: round(x),
+        y: round(y),
+        team: summoner.team,
+        isBug: species.tier === 'champion',
+      });
+    }
+    return born;
   }
 
   _applyStatus(target, descriptor, source = null) {
@@ -896,29 +1115,48 @@ export class BugArenaEngine extends EventEmitter {
       duration: descriptor.duration,
       remaining: descriptor.duration,
       speedMultiplier: descriptor.speedMultiplier ?? 1,
+      // Permanent traits (an innate carapace, the last-stand rage) still need a
+      // duration internally, but they shouldn't show a ticking countdown on screen.
+      permanent: !!descriptor.permanent,
+      // Combat multipliers: <1 armour / weakness, >1 vulnerability / empowerment.
+      damageTakenMultiplier: descriptor.damageTakenMultiplier ?? 1,
+      damageDealtMultiplier: descriptor.damageDealtMultiplier ?? 1,
       damagePerTick,
       preventMove: !!descriptor.preventMove, // generic flags the engine reads
       preventAttack: !!descriptor.preventAttack, // (immobilize = both true)
+      preventHeal: !!descriptor.preventHeal, // blocks every healing source
       sourceId: source ? source.id : null,
       sourceTeam: source ? source.team : null,
     };
     const existing = target.statuses.find((s) => s.type === status.type);
     if (existing && !descriptor.stackable) {
-      // Refresh duration rather than stacking (keeps things bounded).
+      // Refresh in place rather than stacking (keeps things bounded). EVERY field
+      // is refreshed — a re-application with new values (e.g. a swarm buff that
+      // grows as allies gather) must fully replace the old ones, label included.
       existing.remaining = Math.max(existing.remaining, status.remaining);
+      existing.duration = Math.max(existing.duration, status.duration);
+      existing.label = status.label;
       existing.speedMultiplier = status.speedMultiplier;
+      existing.damageTakenMultiplier = status.damageTakenMultiplier;
+      existing.damageDealtMultiplier = status.damageDealtMultiplier;
       existing.damagePerTick = status.damagePerTick;
       existing.preventMove = status.preventMove;
       existing.preventAttack = status.preventAttack;
+      existing.preventHeal = status.preventHeal;
       existing.sourceId = status.sourceId;
     } else {
       target.statuses.push(status);
     }
-    this.pushEvent(EVENTS.STATUS_APPLIED, {
-      agentId: target.id,
-      statusType: status.type, // NOT `type` — that key is the event discriminator
-      duration: status.duration,
-    });
+    // Continuously-refreshed passives (a swarm bond, the comeback rubber band)
+    // would otherwise emit this every few ticks for every agent and drown the
+    // snapshot event stream. They opt out with `quiet`.
+    if (!descriptor.quiet) {
+      this.pushEvent(EVENTS.STATUS_APPLIED, {
+        agentId: target.id,
+        statusType: status.type, // NOT `type` — that key is the event discriminator
+        duration: status.duration,
+      });
+    }
   }
 
   _killAgent(agent, killer, cause) {
@@ -958,6 +1196,9 @@ export class BugArenaEngine extends EventEmitter {
     this._heal(agent, this.config.food.healAmount);
     agent.memory.foodEaten = (agent.memory.foodEaten ?? 0) + 1;
     this.pushEvent(EVENTS.FOOD_EATEN, { agentId: agent.id, foodId: food.id, team: agent.team });
+    // Foraging hook: lets a species react to its own meal (share it out, grow on
+    // it) without having to poll `memory.foodEaten` every tick.
+    agent.species.hooks.on_food?.(agent, this.api);
 
     // Colony growth: bank the food toward this team's next reinforcement. Skipped
     // in custom-roster fights so the exact matchup you built stays the matchup.
@@ -982,6 +1223,9 @@ export class BugArenaEngine extends EventEmitter {
    * soldier/bug is eligible with no change here.
    */
   _spawnReinforcement(team) {
+    // Respect the same population ceiling summoning does.
+    const living = this.agents.reduce((n, a) => n + (a.alive ? 1 : 0), 0);
+    if (living >= (this.config.maxAgents ?? 220)) return;
     const isBug = this.rng() < this.config.food.bugChance;
     const tier = isBug ? 'champion' : 'soldier';
     const poolOverride = isBug ? this.config.teams.championPool : this.config.teams.soldierPool;
@@ -1006,12 +1250,17 @@ export class BugArenaEngine extends EventEmitter {
   /** A muster point just inside `team`'s home wall, at a random lane. */
   _reinforceSpawnPosition(team) {
     const { width, height, wallThickness: t } = this.config.arena;
-    const top = t + 30;
-    const bottom = height - t - 30;
-    const y = top + this.rng() * (bottom - top);
+    const vertical = height > width; // must match `_spawnPosition`'s orientation
+    const advanceLen = vertical ? height : width;
+    const spreadLen = vertical ? width : height;
+
+    const near = t + 30;
+    const far = spreadLen - t - 30;
+    const across = near + this.rng() * (far - near);
     const depth = 24 + this.rng() * 44;
-    const x = team === TEAMS.A ? t + depth : width - t - depth;
-    return { x, y };
+    const along = team === TEAMS.A ? t + depth : advanceLen - t - depth;
+
+    return vertical ? { x: across, y: along } : { x: along, y: across };
   }
 
   _flushRemovals() {
@@ -1233,7 +1482,10 @@ export class BugArenaEngine extends EventEmitter {
         x: round(a.x),
         y: round(a.y),
         angle: round(a.angle, 3),
-        health: round(a.health),
+        // A living agent must never READ as 0 HP. Rounding sub-0.5 health down to
+        // zero left units fighting on with a visibly empty health bar, which looks
+        // like a bug to a viewer even though the simulation is correct.
+        health: a.health > 0 ? Math.max(1, Math.round(a.health)) : 0,
         maxHealth: a.maxHealth,
         action: a.action,
         // Rich status objects so the renderer can show labels + a countdown and
@@ -1241,7 +1493,8 @@ export class BugArenaEngine extends EventEmitter {
         statuses: a.statuses.map((s) => ({
           type: s.type,
           label: s.label,
-          remaining: round(s.remaining / rate, 1),
+          // null => the renderer prints the bare label with no countdown.
+          remaining: s.permanent ? null : round(s.remaining / rate, 1),
           immobilize: s.preventAttack,
         })),
       };

@@ -1,0 +1,87 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- Bombardier Beetle — top-down, facing up. Dark blue-black elytra over a hot
+       orange body, with the reaction chamber glowing through the abdomen and heat
+       shimmer venting around it. Reads as "loaded and about to go off". -->
+  <defs>
+    <radialGradient id="bbElytra" cx="38%" cy="26%" r="82%">
+      <stop offset="0%" stop-color="#4a5470"/>
+      <stop offset="45%" stop-color="#232a3c"/>
+      <stop offset="100%" stop-color="#0b0d14"/>
+    </radialGradient>
+    <radialGradient id="bbBody" cx="42%" cy="30%" r="82%">
+      <stop offset="0%" stop-color="#ff9a4a"/>
+      <stop offset="55%" stop-color="#d94f2b"/>
+      <stop offset="100%" stop-color="#6b1c07"/>
+    </radialGradient>
+    <radialGradient id="bbChamber" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#fff3b0"/>
+      <stop offset="45%" stop-color="#ffb02e"/>
+      <stop offset="100%" stop-color="rgba(255,110,20,0)"/>
+    </radialGradient>
+    <radialGradient id="bbHeat" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="rgba(255,150,40,0.34)"/>
+      <stop offset="100%" stop-color="rgba(255,150,40,0)"/>
+    </radialGradient>
+  </defs>
+
+  <!-- heat haze rolling off the whole insect -->
+  <circle cx="64" cy="74" r="44" fill="url(#bbHeat)"/>
+
+  <!-- legs -->
+  <g fill="none" stroke="#2a1408" stroke-width="4.2" stroke-linecap="round">
+    <g id="bbLegs">
+      <path d="M52 58 Q32 50 19 39"/>
+      <path d="M51 72 Q30 73 16 75"/>
+      <path d="M53 87 Q35 97 25 110"/>
+    </g>
+    <use href="#bbLegs" transform="matrix(-1 0 0 1 128 0)"/>
+  </g>
+
+  <!-- abdomen: hot orange, showing through between the wing cases -->
+  <ellipse cx="64" cy="84" rx="21" ry="27" fill="url(#bbBody)" stroke="#2a1408" stroke-width="3.4"/>
+
+  <!-- the reaction chamber glowing inside the abdomen -->
+  <circle cx="64" cy="92" r="15" fill="url(#bbChamber)" opacity="0.9"/>
+  <circle cx="64" cy="92" r="6.5" fill="#fffbe0" opacity="0.7"/>
+
+  <!-- elytra: dark plates laid over the abdomen, parted to expose the glow -->
+  <path d="M64 56 Q45 58 42 78 Q40 98 52 110 Q58 100 60 78 Q61 62 64 56 Z"
+        fill="url(#bbElytra)" stroke="#0b0d14" stroke-width="3"/>
+  <path d="M64 56 Q83 58 86 78 Q88 98 76 110 Q70 100 68 78 Q67 62 64 56 Z"
+        fill="url(#bbElytra)" stroke="#0b0d14" stroke-width="3"/>
+  <g fill="none" stroke="#0b0d14" stroke-width="1.4" opacity="0.5">
+    <path d="M52 66 Q48 84 53 102"/>
+    <path d="M76 66 Q80 84 75 102"/>
+  </g>
+  <ellipse cx="52" cy="68" rx="5" ry="10" fill="#9fb4e0" opacity="0.16" transform="rotate(-12 52 68)"/>
+
+  <!-- pronotum + head, in the same hot orange -->
+  <ellipse cx="64" cy="49" rx="14" ry="10" fill="url(#bbBody)" stroke="#2a1408" stroke-width="3.2"/>
+  <ellipse cx="64" cy="33" rx="9.5" ry="8.5" fill="url(#bbBody)" stroke="#2a1408" stroke-width="3"/>
+
+  <!-- forward-swept antennae -->
+  <g fill="none" stroke="#2a1408" stroke-width="2.8" stroke-linecap="round">
+    <path d="M58 28 Q50 18 44 10"/>
+    <path d="M70 28 Q78 18 84 10"/>
+  </g>
+  <!-- mandibles -->
+  <g fill="none" stroke="#2a1408" stroke-width="3" stroke-linecap="round">
+    <path d="M59 27 Q55 21 56 16"/>
+    <path d="M69 27 Q73 21 72 16"/>
+  </g>
+
+  <!-- vent nozzles: the twin ports the spray actually leaves from -->
+  <g fill="#2a1408" opacity="0.9">
+    <circle cx="57" cy="110" r="3.2"/>
+    <circle cx="71" cy="110" r="3.2"/>
+  </g>
+  <g fill="none" stroke="#ffb02e" stroke-width="2" stroke-linecap="round" opacity="0.75">
+    <path d="M57 113 L55 121"/>
+    <path d="M71 113 L73 121"/>
+  </g>
+
+  <!-- eyes -->
+  <circle cx="59" cy="33" r="2.4" fill="#170a02"/>
+  <circle cx="69" cy="33" r="2.4" fill="#170a02"/>
+  <circle cx="59.7" cy="32.2" r="0.9" fill="#ffe9c0" opacity="0.85"/>
+</svg>

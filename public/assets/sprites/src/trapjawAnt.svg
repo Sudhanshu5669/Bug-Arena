@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- Trap-Jaw Ant — top-down, facing up. Everything is subordinate to the jaws:
+       two long straight mandibles latched open at almost 180°, cocked and waiting.
+       The big square head houses the muscle that drives them. -->
+  <defs>
+    <radialGradient id="tjGaster" cx="42%" cy="28%" r="80%">
+      <stop offset="0%" stop-color="#f0c473"/>
+      <stop offset="52%" stop-color="#c98a2e"/>
+      <stop offset="100%" stop-color="#5c3708"/>
+    </radialGradient>
+    <radialGradient id="tjThorax" cx="42%" cy="30%" r="82%">
+      <stop offset="0%" stop-color="#e0ae55"/>
+      <stop offset="100%" stop-color="#5f3a09"/>
+    </radialGradient>
+    <radialGradient id="tjHead" cx="40%" cy="26%" r="80%">
+      <stop offset="0%" stop-color="#f2c777"/>
+      <stop offset="60%" stop-color="#c08228"/>
+      <stop offset="100%" stop-color="#59340a"/>
+    </radialGradient>
+  </defs>
+
+  <!-- legs + antennae -->
+  <g fill="none" stroke="#4a2d08" stroke-width="3.2" stroke-linecap="round">
+    <g id="tjLimbs">
+      <path d="M56 68 Q36 60 23 49"/>
+      <path d="M56 76 Q35 76 21 77"/>
+      <path d="M56 84 Q37 94 26 106"/>
+      <path d="M57 48 Q47 40 40 33"/>
+    </g>
+    <use href="#tjLimbs" transform="matrix(-1 0 0 1 128 0)"/>
+  </g>
+
+  <!-- body: gaster, thorax, and a notably large squared-off head -->
+  <ellipse cx="64" cy="98" rx="14" ry="18" fill="url(#tjGaster)" stroke="#4a2d08" stroke-width="3.2"/>
+  <ellipse cx="64" cy="72" rx="10" ry="12" fill="url(#tjThorax)" stroke="#4a2d08" stroke-width="3.2"/>
+  <path d="M50 52 Q50 38 64 38 Q78 38 78 52 Q78 62 64 62 Q50 62 50 52 Z"
+        fill="url(#tjHead)" stroke="#4a2d08" stroke-width="3.4"/>
+
+  <!-- gaster cinches + sheen -->
+  <path d="M52 95 Q64 101 76 95" fill="none" stroke="#4a2d08" stroke-width="2" opacity="0.5"/>
+  <ellipse cx="58" cy="92" rx="4.5" ry="6.5" fill="#fff0c8" opacity="0.28"/>
+
+  <!-- THE JAWS: long, straight, latched open and cocked. Dark core with a bright
+       inner edge so the "loaded spring" reads at a glance. -->
+  <g stroke-linecap="round">
+    <g id="tjJaw">
+      <path d="M53 44 L30 24 L18 10" fill="none" stroke="#3a2206" stroke-width="7"/>
+      <path d="M53 44 L30 24 L18 10" fill="none" stroke="#e8bb5f" stroke-width="3"/>
+      <!-- the barbed tip -->
+      <path d="M18 10 L12 4 L22 6 Z" fill="#2e1a04" stroke="#3a2206" stroke-width="1.6" stroke-linejoin="round"/>
+      <!-- inner tooth -->
+      <path d="M30 24 L36 20" fill="none" stroke="#3a2206" stroke-width="3.4"/>
+    </g>
+    <use href="#tjJaw" transform="matrix(-1 0 0 1 128 0)"/>
+  </g>
+
+  <!-- the latch: trigger hairs between the cocked jaws -->
+  <g fill="none" stroke="#3a2206" stroke-width="1.6" stroke-linecap="round" opacity="0.85">
+    <path d="M62 38 L60 30"/>
+    <path d="M66 38 L68 30"/>
+  </g>
+
+  <!-- eyes, set wide on the big head -->
+  <circle cx="56" cy="50" r="2.6" fill="#221302"/>
+  <circle cx="72" cy="50" r="2.6" fill="#221302"/>
+  <circle cx="56.8" cy="49.1" r="1" fill="#ffeec2" opacity="0.85"/>
+</svg>

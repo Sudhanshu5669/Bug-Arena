@@ -52,6 +52,16 @@ const suicideAnt = {
   // No gated signature ability — its whole identity is the death burst below.
   ability: null,
 
+  // Sound signature: a negligible bite, and a rupture you hear across the arena.
+  sfx: {
+    attack: [{ src: 'noise', filter: 'highpass', f0: 3200, dur: 0.03, gain: 0.2 }],
+    death: [
+      { src: 'tone', wave: 'sine', f0: 300, f1: 48, dur: 0.4, gain: 0.3 }, // the gaster splitting
+      { src: 'noise', filter: 'lowpass', f0: 3000, f1: 200, dur: 0.45, gain: 0.38 }, // the burst
+      { src: 'noise', filter: 'bandpass', f0: 1400, q: 2, dur: 0.7, gain: 0.15, t0: 0.12 }, // lingering hiss
+    ],
+  },
+
   hooks: {
     on_death(self, ctx) {
       for (const enemy of ctx.enemiesInRadius(self, SPRAY.RADIUS)) {

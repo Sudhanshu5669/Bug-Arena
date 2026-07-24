@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- Harvester Ant — top-down, facing up. Brick-red, with the big seed-milling
+       head the real species is known for, a fringe of bristles under the jaws, and
+       a heavy grain-packed gaster. Reads as "eats a lot, gets bigger". -->
+  <defs>
+    <radialGradient id="haGaster" cx="42%" cy="28%" r="80%">
+      <stop offset="0%" stop-color="#e8845f"/>
+      <stop offset="52%" stop-color="#c2543a"/>
+      <stop offset="100%" stop-color="#521a0e"/>
+    </radialGradient>
+    <radialGradient id="haBody" cx="42%" cy="30%" r="82%">
+      <stop offset="0%" stop-color="#d76a48"/>
+      <stop offset="100%" stop-color="#4a1509"/>
+    </radialGradient>
+    <radialGradient id="haHead" cx="40%" cy="26%" r="80%">
+      <stop offset="0%" stop-color="#e07a55"/>
+      <stop offset="60%" stop-color="#b84a30"/>
+      <stop offset="100%" stop-color="#48140a"/>
+    </radialGradient>
+  </defs>
+
+  <!-- sturdy legs + antennae -->
+  <g fill="none" stroke="#3f150c" stroke-width="3.2" stroke-linecap="round">
+    <g id="haLimbs">
+      <path d="M56 66 Q36 58 23 48"/>
+      <path d="M56 74 Q35 74 21 75"/>
+      <path d="M56 82 Q37 92 26 104"/>
+      <path d="M58 46 Q49 38 43 31"/>
+    </g>
+    <use href="#haLimbs" transform="matrix(-1 0 0 1 128 0)"/>
+  </g>
+
+  <!-- body: heavy gaster, thorax, and an oversized milling head -->
+  <ellipse cx="64" cy="94" rx="15" ry="19" fill="url(#haGaster)" stroke="#3f150c" stroke-width="3.2"/>
+  <ellipse cx="64" cy="70" rx="9.5" ry="11" fill="url(#haBody)" stroke="#3f150c" stroke-width="3.2"/>
+  <ellipse cx="64" cy="48" rx="12.5" ry="11.5" fill="url(#haHead)" stroke="#3f150c" stroke-width="3.4"/>
+
+  <!-- grain visible through the packed gaster -->
+  <g fill="#ffd9a0" opacity="0.4">
+    <ellipse cx="58" cy="90" rx="3.4" ry="2.4" transform="rotate(-25 58 90)"/>
+    <ellipse cx="69" cy="96" rx="3" ry="2.1" transform="rotate(15 69 96)"/>
+    <ellipse cx="62" cy="102" rx="2.6" ry="1.8" transform="rotate(-10 62 102)"/>
+  </g>
+  <path d="M52 92 Q64 98 76 92" fill="none" stroke="#3f150c" stroke-width="1.8" opacity="0.45"/>
+
+  <!-- psammophore: the bristle basket under the head that carries seeds -->
+  <g fill="none" stroke="#7a2c16" stroke-width="1.6" stroke-linecap="round" opacity="0.85">
+    <path d="M55 56 L52 63"/><path d="M59 58 L57 65"/><path d="M64 59 L64 66"/>
+    <path d="M69 58 L71 65"/><path d="M73 56 L76 63"/>
+  </g>
+
+  <!-- heavy milling mandibles -->
+  <g fill="none" stroke="#3f150c" stroke-width="4" stroke-linecap="round">
+    <path d="M56 40 Q49 32 46 25"/>
+    <path d="M72 40 Q79 32 82 25"/>
+  </g>
+  <!-- a seed held between them -->
+  <ellipse cx="64" cy="28" rx="6.5" ry="5" fill="#e7c06b" stroke="#7a4f22" stroke-width="2"/>
+  <path d="M60 27 Q64 24 68 27" fill="none" stroke="#7a4f22" stroke-width="1.2" opacity="0.7"/>
+
+  <!-- eyes, wide on the big head -->
+  <circle cx="57" cy="47" r="2.4" fill="#280a04"/>
+  <circle cx="71" cy="47" r="2.4" fill="#280a04"/>
+  <circle cx="57.7" cy="46.2" r="0.9" fill="#ffd9c4" opacity="0.85"/>
+</svg>

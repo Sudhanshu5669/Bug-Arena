@@ -75,6 +75,16 @@ const scorpion = {
     },
   },
 
+  // Sound signature: hard pincer clacks, then the whip and hiss of the sting.
+  sfx: {
+    attack: [{ src: 'noise', filter: 'bandpass', f0: 1800, f1: 900, q: 12, dur: 0.045, gain: 0.26 }],
+    ability: [
+      { src: 'tone', wave: 'square', f0: 180, f1: 1500, dur: 0.13, gain: 0.13, cutoff: 2200 }, // the tail whip
+      { src: 'noise', filter: 'bandpass', f0: 3000, f1: 1200, q: 5, dur: 0.3, gain: 0.22, t0: 0.1 }, // venom
+    ],
+    death: [{ src: 'noise', filter: 'lowpass', f0: 1100, f1: 200, dur: 0.28, gain: 0.32 }],
+  },
+
   hooks: {},
 };
 

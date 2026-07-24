@@ -6,8 +6,12 @@ import { registerSpecies } from './registry.js';
 // --- ability tuning (easy to find + tweak) -----------------------------------
 const DASH = {
   TRIGGER_CHANCE: 0.4, // 40% chance per attack (dashes fairly often)
-  COOLDOWN_SECONDS: 3.5, // short — it's a bread-and-butter burst
-  BONUS_DAMAGE: 16, // extra damage on top of the normal hit, dealt to ALL it plows through
+  // A lane-wide AoE that damages, knocks back AND staggers is the strongest
+  // single ability in the game; at a 3.5s cycle it was up almost constantly and
+  // the mantis beat every other champion ~98% of the time. It's a cooldown
+  // ability now, not a rotational one.
+  COOLDOWN_SECONDS: 5.5,
+  BONUS_DAMAGE: 12, // extra damage on top of the normal hit, dealt to ALL it plows through
   DASH_DISTANCE: 165, // px the mantis charges across — a long, arena-spanning lunge
   HIT_RADIUS: 20, // half-width of the swept lane that catches enemies
   KNOCKBACK: 36, // px each foe in the lane is bowled aside
@@ -23,12 +27,15 @@ const mantis = {
     'A glass-cannon duelist. It charges across the arena, scything through and scattering everything in its lane.',
 
   stats: {
-    maxHealth: 150, // a BUG through and through — a wall of ants can't trade it down cheaply
+    // "Glass cannon" has to actually be glass. It previously had the highest
+    // damage output in the game AND mid-tier bulk, so it had no losing matchup;
+    // its health now sits with the other fragile champions (hornet 120, widow 124).
+    maxHealth: 124,
     speed: 3.1,
     size: 12,
-    damage: 15,
+    damage: 11,
     attackRange: 22,
-    attackCooldown: 28, // ticks (~0.47s)
+    attackCooldown: 28, // ticks (~0.47s) — still the fastest heavy hitter
     visionRange: 270,
   },
 
@@ -84,6 +91,17 @@ const mantis = {
       });
       return res; // fed to `log` above for the "scythed through N" line
     },
+  },
+
+  // Sound signature: bladed. Thin, bright, and quick — a scythe through air.
+  sfx: {
+    attack: [{ src: 'noise', filter: 'bandpass', f0: 5200, f1: 3000, q: 10, dur: 0.05, gain: 0.26 }],
+    ability: [
+      { src: 'noise', filter: 'bandpass', f0: 600, f1: 5000, q: 1.2, dur: 0.2, gain: 0.34 }, // the swoosh
+      { src: 'tone', wave: 'sawtooth', f0: 300, f1: 900, dur: 0.16, gain: 0.11, cutoff: 2600 },
+      { src: 'noise', filter: 'lowpass', f0: 2000, f1: 300, dur: 0.14, gain: 0.3, t0: 0.17 }, // the landing
+    ],
+    death: [{ src: 'noise', filter: 'bandpass', f0: 2400, f1: 800, q: 5, dur: 0.18, gain: 0.3 }],
   },
 
   hooks: {},

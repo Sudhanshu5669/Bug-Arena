@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- Worker Ant — top-down, facing up. The plainest ant in the set on purpose:
+       small, plain brown, no weapons, and a crumb held in its jaws. It should read
+       as "harmless and busy" next to everything else on the field. -->
+  <defs>
+    <radialGradient id="woGaster" cx="42%" cy="28%" r="80%">
+      <stop offset="0%" stop-color="#b08a52"/>
+      <stop offset="55%" stop-color="#8a6a3e"/>
+      <stop offset="100%" stop-color="#3d2c13"/>
+    </radialGradient>
+    <radialGradient id="woBody" cx="42%" cy="30%" r="82%">
+      <stop offset="0%" stop-color="#a07e46"/>
+      <stop offset="100%" stop-color="#3a2911"/>
+    </radialGradient>
+  </defs>
+
+  <!-- thin legs + antennae -->
+  <g fill="none" stroke="#33240f" stroke-width="2.8" stroke-linecap="round">
+    <g id="woLimbs">
+      <path d="M56 62 Q38 55 26 46"/>
+      <path d="M56 70 Q37 70 24 71"/>
+      <path d="M56 78 Q38 88 28 99"/>
+      <path d="M59 42 Q52 32 47 23"/>
+    </g>
+    <use href="#woLimbs" transform="matrix(-1 0 0 1 128 0)"/>
+  </g>
+
+  <!-- small mandibles, holding a crumb -->
+  <g fill="none" stroke="#33240f" stroke-width="2.4" stroke-linecap="round">
+    <path d="M59 39 Q55 33 56 29"/>
+    <path d="M69 39 Q73 33 72 29"/>
+  </g>
+  <!-- the crumb it's carrying home -->
+  <path d="M64 20 l7 4 -2 8 -9 1 -3 -8 z" fill="#e7b96b" stroke="#7a4f22" stroke-width="2" stroke-linejoin="round"/>
+  <circle cx="62" cy="25" r="1.6" fill="#fff0c8" opacity="0.6"/>
+
+  <!-- body: modest gaster, narrow thorax, small head -->
+  <ellipse cx="64" cy="90" rx="13" ry="17" fill="url(#woGaster)" stroke="#33240f" stroke-width="2.9"/>
+  <ellipse cx="64" cy="66" rx="8" ry="10" fill="url(#woBody)" stroke="#33240f" stroke-width="2.9"/>
+  <circle cx="64" cy="45" r="8.5" fill="url(#woBody)" stroke="#33240f" stroke-width="2.9"/>
+
+  <!-- gaster cinch + faint sheen -->
+  <path d="M53 88 Q64 94 75 88" fill="none" stroke="#2a1d0b" stroke-width="1.8" opacity="0.5"/>
+  <ellipse cx="58" cy="85" rx="3.6" ry="5.4" fill="#ffe3ae" opacity="0.24"/>
+
+  <!-- eyes -->
+  <circle cx="60" cy="45" r="1.9" fill="#1a1105"/>
+  <circle cx="68" cy="45" r="1.9" fill="#1a1105"/>
+  <circle cx="60.6" cy="44.3" r="0.75" fill="#f0dfb8" opacity="0.85"/>
+</svg>

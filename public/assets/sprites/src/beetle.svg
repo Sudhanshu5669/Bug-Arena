@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- Hercules Beetle — top-down, facing up. A slab of armour: broad ribbed elytra,
+       a heavy pronotum, and the great forward-curving horn (with its opposing lower
+       horn) that gives the toss its shape. Dark chitin, cool highlights. -->
+  <defs>
+    <radialGradient id="hbElytra" cx="38%" cy="26%" r="82%">
+      <stop offset="0%" stop-color="#8a7350"/>
+      <stop offset="48%" stop-color="#4a3b2a"/>
+      <stop offset="100%" stop-color="#180f06"/>
+    </radialGradient>
+    <radialGradient id="hbPro" cx="40%" cy="28%" r="82%">
+      <stop offset="0%" stop-color="#7d6644"/>
+      <stop offset="100%" stop-color="#1d1308"/>
+    </radialGradient>
+    <linearGradient id="hbHorn" x1="0%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%" stop-color="#2a1c0c"/>
+      <stop offset="55%" stop-color="#6b5638"/>
+      <stop offset="100%" stop-color="#3a2a14"/>
+    </linearGradient>
+  </defs>
+
+  <!-- six thick, clawed legs -->
+  <g fill="none" stroke="#181008" stroke-width="5.2" stroke-linecap="round">
+    <g id="hbLegs">
+      <path d="M50 62 Q30 56 16 46"/>
+      <path d="M50 76 Q28 78 14 82"/>
+      <path d="M52 92 Q34 102 24 116"/>
+    </g>
+    <use href="#hbLegs" transform="matrix(-1 0 0 1 128 0)"/>
+  </g>
+  <!-- tarsal claws -->
+  <g fill="none" stroke="#181008" stroke-width="2.6" stroke-linecap="round">
+    <path d="M16 46 L10 42"/><path d="M14 82 L7 84"/><path d="M24 116 L19 122"/>
+    <path d="M112 46 L118 42"/><path d="M114 82 L121 84"/><path d="M104 116 L109 122"/>
+  </g>
+
+  <!-- elytra: a broad armoured shell with a central seam and ribbing -->
+  <ellipse cx="64" cy="84" rx="27" ry="32" fill="url(#hbElytra)" stroke="#181008" stroke-width="3.8"/>
+  <path d="M64 54 L64 115" fill="none" stroke="#100a04" stroke-width="2.6" opacity="0.85"/>
+  <g fill="none" stroke="#100a04" stroke-width="1.6" opacity="0.45">
+    <path d="M50 60 Q45 84 50 108"/>
+    <path d="M78 60 Q83 84 78 108"/>
+  </g>
+  <!-- shell sheen -->
+  <ellipse cx="52" cy="68" rx="8" ry="13" fill="#ffffff" opacity="0.13" transform="rotate(-16 52 68)"/>
+
+  <!-- pronotum (the armoured shoulder plate) -->
+  <ellipse cx="64" cy="50" rx="19" ry="14" fill="url(#hbPro)" stroke="#181008" stroke-width="3.4"/>
+
+  <!-- head -->
+  <ellipse cx="64" cy="36" rx="11" ry="8.5" fill="url(#hbPro)" stroke="#181008" stroke-width="3"/>
+
+  <!-- the lower (head) horn, sweeping up toward the big one -->
+  <path d="M64 32 C 60 22 61 14 66 8" fill="none" stroke="#181008" stroke-width="7.5" stroke-linecap="round"/>
+  <path d="M64 32 C 60 22 61 14 66 8" fill="none" stroke="url(#hbHorn)" stroke-width="4" stroke-linecap="round"/>
+
+  <!-- THE HORN: a massive thoracic horn arching forward over the head, with the
+       characteristic inner tooth. This is the silhouette the species is known by. -->
+  <path d="M64 44 C 74 32 78 20 70 6" fill="none" stroke="#181008" stroke-width="13" stroke-linecap="round"/>
+  <path d="M64 44 C 74 32 78 20 70 6" fill="none" stroke="url(#hbHorn)" stroke-width="8.5" stroke-linecap="round"/>
+  <!-- inner tooth -->
+  <path d="M74 24 L64 20" fill="none" stroke="#181008" stroke-width="5" stroke-linecap="round"/>
+  <path d="M74 24 L64 20" fill="none" stroke="#5b4830" stroke-width="2.4" stroke-linecap="round"/>
+  <!-- horn tip -->
+  <path d="M70 6 L64 0 L76 3 Z" fill="#241705" stroke="#181008" stroke-width="1.6" stroke-linejoin="round"/>
+
+  <!-- eyes, small and low on the head -->
+  <circle cx="56" cy="37" r="2.3" fill="#0d0803"/>
+  <circle cx="72" cy="37" r="2.3" fill="#0d0803"/>
+  <circle cx="56.7" cy="36.2" r="0.9" fill="#d8cbb0" opacity="0.75"/>
+</svg>

@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- Army Ant — top-down, facing up. Small, lean and rust-red, built entirely
+       around a pair of outsized shearing mandibles. Long thin legs read as speed;
+       the narrow body reads as fragile, which it very much is. -->
+  <defs>
+    <radialGradient id="aaGaster" cx="42%" cy="28%" r="80%">
+      <stop offset="0%" stop-color="#e07a52"/>
+      <stop offset="52%" stop-color="#a8452a"/>
+      <stop offset="100%" stop-color="#4d1408"/>
+    </radialGradient>
+    <radialGradient id="aaThorax" cx="42%" cy="30%" r="82%">
+      <stop offset="0%" stop-color="#d06a44"/>
+      <stop offset="100%" stop-color="#571a0b"/>
+    </radialGradient>
+    <radialGradient id="aaHead" cx="40%" cy="28%" r="82%">
+      <stop offset="0%" stop-color="#d97350"/>
+      <stop offset="100%" stop-color="#5e1d0c"/>
+    </radialGradient>
+  </defs>
+
+  <!-- long, thin, fast legs + antennae -->
+  <g fill="none" stroke="#3d1409" stroke-width="2.8" stroke-linecap="round">
+    <g id="aaLimbs">
+      <path d="M56 60 Q35 50 20 38"/>
+      <path d="M56 68 Q34 68 18 68"/>
+      <path d="M56 76 Q36 87 24 100"/>
+      <path d="M59 40 Q51 28 46 16"/>
+    </g>
+    <use href="#aaLimbs" transform="matrix(-1 0 0 1 128 0)"/>
+  </g>
+
+  <!-- oversized shearing mandibles — the whole point of the species -->
+  <g fill="none" stroke="#3d1409" stroke-width="4.6" stroke-linecap="round">
+    <path d="M57 36 Q47 27 42 14"/>
+    <path d="M71 36 Q81 27 86 14"/>
+  </g>
+  <g fill="none" stroke="#c4653f" stroke-width="1.8" stroke-linecap="round">
+    <path d="M57 36 Q47 27 42 14"/>
+    <path d="M71 36 Q81 27 86 14"/>
+  </g>
+
+  <!-- body: narrow head, pinched waist, tapered gaster -->
+  <ellipse cx="64" cy="92" rx="12" ry="17" fill="url(#aaGaster)" stroke="#3d1409" stroke-width="3"/>
+  <ellipse cx="64" cy="66" rx="8" ry="11" fill="url(#aaThorax)" stroke="#3d1409" stroke-width="3"/>
+  <!-- the pinched petiole between thorax and gaster -->
+  <circle cx="64" cy="78" r="3.6" fill="url(#aaThorax)" stroke="#3d1409" stroke-width="2.2"/>
+  <ellipse cx="64" cy="44" rx="9.5" ry="9" fill="url(#aaHead)" stroke="#3d1409" stroke-width="3"/>
+
+  <!-- gaster banding -->
+  <path d="M53 89 Q64 95 75 89" fill="none" stroke="#3d1409" stroke-width="1.8" opacity="0.55"/>
+  <path d="M55 99 Q64 104 73 99" fill="none" stroke="#3d1409" stroke-width="1.6" opacity="0.45"/>
+  <ellipse cx="58" cy="86" rx="4" ry="6" fill="#ffd0b8" opacity="0.22"/>
+
+  <!-- eyes: tiny (army ants are near blind — they run on the column, not sight) -->
+  <circle cx="59" cy="44" r="1.7" fill="#2a0c04"/>
+  <circle cx="69" cy="44" r="1.7" fill="#2a0c04"/>
+  <circle cx="59.5" cy="43.4" r="0.7" fill="#ffd9c4" opacity="0.8"/>
+</svg>

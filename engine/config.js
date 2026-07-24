@@ -25,6 +25,25 @@ export const DEFAULT_CONFIG = Object.freeze({
     // Eligible species per tier. null => all registered species of that tier.
     soldierPool: null,
     championPool: null,
+    // Px between the two front lines at the opening whistle. This is a PACING
+    // control: teams used to spawn against opposite walls and spend the first
+    // ~5 seconds walking, which is dead air a short-form viewer won't sit through.
+    startGap: 300,
+  },
+
+  // Presentation-driven pacing. None of this changes what a species IS — it
+  // shapes how a battle READS as a spectacle. Turn `comeback` off for clean
+  // balance measurements; leave it on for anything anyone actually watches.
+  drama: {
+    // Rubber-banding. Without it ~72% of battles were decided the moment one side
+    // got ahead: more units means more focus fire, which snowballs. Scaling an
+    // outnumbered team's power by its deficit turns those into real fights.
+    comeback: true,
+    comebackEveryTicks: 20, // how often the deficit is recomputed
+    minDeficit: 1.25, // outnumbered by less than this and nothing happens
+    fullDeficit: 3, // deficit at which the buff is maxed out
+    maxDamageBonus: 1.0, // at an overwhelming deficit: up to +100% damage dealt
+    maxResist: 0.4, // ...and up to 40% less damage taken
   },
 
   // Default behaviour: colonies FORAGE first and only fight enemies that stray
@@ -49,6 +68,11 @@ export const DEFAULT_CONFIG = Object.freeze({
   combat: {
     friendlyFire: false, // reserved: species AoE hooks respect team by default
   },
+
+  // Hard ceiling on living agents. Reinforcements and species SUMMON abilities
+  // (e.g. a queen's brood) both respect it, so no combination of growth can grind
+  // the simulation to a halt.
+  maxAgents: 220,
 
   tickRate: 60, // simulation ticks per second (also drives the physics substep)
   maxTicks: 60 * 100, // hard cap (~100s) → timeout win condition if nobody wins first

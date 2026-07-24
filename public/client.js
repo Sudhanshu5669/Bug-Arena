@@ -2,7 +2,8 @@
 // the CanvasRenderer, and updates the HUD (score, rosters, kill feed). It has no
 // simulation logic — it only renders state the engine produces.
 
-import { CanvasRenderer } from '/render/canvasRenderer.js';
+import { CanvasRenderer, FORMATS } from '/render/canvasRenderer.js';
+import { ArenaAudio, ARENA_SFX } from '/render/audio.js';
 
 const canvas = document.getElementById('arena');
 const $ = (id) => document.getElementById(id);
@@ -11,6 +12,14 @@ let renderer = null;
 let catalog = {};
 let currentMode = 'passive'; // forage-first is the default feel (overwritten by init.mode)
 let rafStarted = false;
+let arenaWidth = 960; // updated from init; used to pan sounds across the stereo field
+let currentFormat = 'wide'; // 'wide' (16:9 preview) | 'short' (9:16 for Shorts)
+let cameraFollow = true; // action camera: chase and zoom on the fighting
+let showreel = true; // intro "VS" card + slow-mo replay + winner card
+
+// The sound layer. Each species carries its own `sfx` recipes in the catalog, so
+// routing an event to a sound is a catalog lookup — no species names appear here.
+const audio = new ArenaAudio({ volume: 0.6 });
 
 // --- Fight builder state (survives auto-restarts; seeded once from the catalog) ---
 let customRoster = { A: {}, B: {} }; // { A: { speciesId: count }, B: {...} }
@@ -46,6 +55,7 @@ function onInit(init) {
   catalog = {};
   for (const s of init.catalog) catalog[s.id] = s;
   currentMode = init.mode;
+  arenaWidth = init.arena?.width || arenaWidth;
   syncModeButtons();
 
   // Seed the builder with a sample matchup the first time we know the roster,
@@ -56,8 +66,9 @@ function onInit(init) {
   }
   renderBuilder();
 
-  if (!renderer) renderer = new CanvasRenderer(canvas, init);
+  if (!renderer) renderer = new CanvasRenderer(canvas, init, { format: currentFormat, showreel });
   else renderer.setInit(init);
+  syncFormatUi();
 
   hideOverlay();
   clearFeed();
@@ -84,10 +95,78 @@ function onSnapshot(snap) {
     else if (ev.type === 'ability') pushAbilityFeed(ev);
     else if (ev.type === 'reinforcement') pushReinforcementFeed(ev);
   }
+  playEventSounds(snap.events);
+}
+
+// --- Sound routing -----------------------------------------------------------
+
+/** Map an arena x-coordinate onto the stereo field (kept short of hard L/R). */
+function panFor(x) {
+  if (x == null) return 0;
+  return Math.max(-0.8, Math.min(0.8, (x / arenaWidth) * 2 - 1));
+}
+
+/**
+ * Turn this tick's events into sound. Every species voice is looked up from the
+ * catalog's `sfx` block, so a new species is audible the moment it declares one.
+ *
+ * Throttle windows matter here: a dozen ants biting on the same tick is one bite
+ * sound, not twelve. The window is per species AND per event kind, so distinct
+ * species still layer against each other.
+ */
+function playEventSounds(events) {
+  for (const ev of events) {
+    switch (ev.type) {
+      case 'attack': {
+        const sfx = catalog[ev.speciesId]?.sfx?.attack;
+        // Attacks are by far the most frequent event — throttled hardest, and
+        // played quietly so ability and death sounds stay on top of the mix.
+        if (sfx) audio.play(sfx, { pan: panFor(ev.x), gain: 0.55, key: `atk:${ev.speciesId}`, throttleMs: 90 });
+        break;
+      }
+      case 'ability': {
+        const sfx = catalog[ev.casterSpecies]?.sfx?.ability;
+        if (sfx) audio.play(sfx, { pan: panFor(ev.x), gain: 1, key: `ab:${ev.casterSpecies}`, throttleMs: 140 });
+        break;
+      }
+      case 'death': {
+        const sfx = catalog[ev.victimSpecies]?.sfx?.death;
+        if (sfx) audio.play(sfx, { pan: panFor(ev.x), gain: 0.9, key: `die:${ev.victimSpecies}`, throttleMs: 70 });
+        break;
+      }
+      case 'reinforcement':
+        audio.play(ev.isBug ? ARENA_SFX.musterBug : ARENA_SFX.muster, {
+          pan: panFor(ev.x),
+          gain: 0.9,
+          key: 'muster',
+          throttleMs: 200,
+        });
+        break;
+      case 'food_eaten':
+        audio.play(ARENA_SFX.eat, { gain: 0.6, key: 'eat', throttleMs: 220 });
+        break;
+      case 'battle_start':
+        audio.play(ARENA_SFX.battleStart, { gain: 1, key: 'start', throttleMs: 1500 });
+        break;
+      case 'battle_over':
+        audio.play(ev.winner === 'draw' ? ARENA_SFX.draw : ARENA_SFX.victory, {
+          gain: 1,
+          key: 'over',
+          throttleMs: 1500,
+        });
+        break;
+      default:
+        break;
+    }
+  }
 }
 
 function onEnd(summary) {
-  showOverlay(summary);
+  // With the showreel on, the winner is announced by the renderer's own outro
+  // card AFTER the slow-mo replay plays out — popping this DOM overlay now would
+  // cover the replay and double up the result. The plain DOM overlay is only for
+  // the no-showreel view.
+  if (!showreel) showOverlay(summary);
 }
 
 // --- HUD ---------------------------------------------------------------------
@@ -217,6 +296,34 @@ function verbFor(cause) {
       return 'stung';
     case 'dash_strike':
       return 'ran down';
+    case 'snap':
+      return 'snapped shut on';
+    case 'toss':
+      return 'hurled';
+    case 'barrage':
+      return 'riddled';
+    case 'crushed':
+      return 'crushed';
+    case 'sweep':
+      return 'raked';
+    case 'chemical_blast':
+      return 'boiled';
+    case 'thorns':
+      return 'splintered'; // the reflect kills the ATTACKER, so the shell is the killer
+    case 'acid':
+      return 'dissolved';
+    case 'leap':
+      return 'pounced on';
+    case 'execute':
+      return 'drained';
+    case 'spit':
+      return 'gunned down';
+    case 'necrosis':
+      return 'rotted';
+    case 'pit':
+      return 'buried';
+    // NOTE: no 'backblast' case — that death is credited to no killer on purpose,
+    // so it takes the killer-less branch above ("… died (backblast)").
     default:
       return 'killed';
   }
@@ -272,6 +379,92 @@ function setMode(mode) {
 function syncModeButtons() {
   $('mode-agg').classList.toggle('active', currentMode === 'aggressive');
   $('mode-pass').classList.toggle('active', currentMode === 'passive');
+}
+
+// --- Framing controls (aspect + action camera) -------------------------------
+
+// A 16:9 desktop preview and a 9:16 Shorts frame are genuinely different shots:
+// the vertical one crops hard, so the action camera matters far more there.
+function syncFormatUi() {
+  const wide = $('fmt-wide');
+  const short = $('fmt-short');
+  if (wide) wide.classList.toggle('active', currentFormat === 'wide');
+  if (short) short.classList.toggle('active', currentFormat === 'short');
+  const stage = document.querySelector('.stage');
+  if (stage) stage.classList.toggle('portrait', currentFormat === 'short');
+  const cam = $('btn-camera');
+  if (cam) {
+    cam.textContent = cameraFollow ? '🎥 Action cam' : '🖼 Full arena';
+    cam.classList.toggle('muted', !cameraFollow);
+  }
+  const reel = $('btn-showreel');
+  if (reel) {
+    reel.textContent = showreel ? '🎬 Showreel: on' : '🎬 Showreel: off';
+    reel.classList.toggle('muted', !showreel);
+  }
+}
+
+// Aspect is not just a crop. A landscape arena letterboxed into a 9:16 frame
+// wastes most of the screen, so switching to Shorts also asks the engine for a
+// PORTRAIT arena — and the engine then lines the armies up top-vs-bottom.
+const ARENA_FOR = {
+  wide: { width: 960, height: 600 },
+  short: { width: 620, height: 1000 },
+};
+
+function setFormat(format) {
+  if (!FORMATS[format] || format === currentFormat) return;
+  currentFormat = format;
+  renderer?.setFormat(format);
+  syncFormatUi();
+  send({ cmd: 'restart', config: { mode: currentMode, arena: ARENA_FOR[format] } });
+}
+
+function setupFramingControls() {
+  $('fmt-wide')?.addEventListener('click', () => setFormat('wide'));
+  $('fmt-short')?.addEventListener('click', () => setFormat('short'));
+  $('btn-camera')?.addEventListener('click', () => {
+    cameraFollow = !cameraFollow;
+    renderer?.setCameraFollow(cameraFollow);
+    syncFormatUi();
+  });
+  $('btn-showreel')?.addEventListener('click', () => {
+    showreel = !showreel;
+    renderer?.setShowreel(showreel);
+    syncFormatUi();
+  });
+  syncFormatUi();
+}
+
+// --- Sound controls ----------------------------------------------------------
+
+// Browsers won't let audio start until the user interacts with the page, so the
+// hint stays up until the context is actually running, then removes itself.
+function setupSoundControls() {
+  const btn = $('btn-sound');
+  const vol = $('vol');
+  const hint = $('sound-hint');
+  if (!btn || !vol) return;
+
+  const syncHint = () => {
+    if (audio.ready || audio.muted) hint?.classList.add('hidden');
+    else hint?.classList.remove('hidden');
+  };
+
+  btn.addEventListener('click', () => {
+    audio.setMuted(!audio.muted);
+    btn.textContent = audio.muted ? '🔇 Muted' : '🔊 Sound';
+    btn.classList.toggle('muted', audio.muted);
+    syncHint();
+  });
+
+  vol.addEventListener('input', () => audio.setVolume(Number(vol.value) / 100));
+
+  // The first click/keypress anywhere unlocks the context (ArenaAudio listens for
+  // it too); re-check shortly after so the hint clears once it's really running.
+  window.addEventListener('pointerdown', () => setTimeout(syncHint, 60), { once: false });
+  window.addEventListener('keydown', () => setTimeout(syncHint, 60), { once: false });
+  syncHint();
 }
 
 // --- Fight builder ----------------------------------------------------------
@@ -367,3 +560,5 @@ function simulateCustomFight() {
 }
 
 setupBuilderControls();
+setupSoundControls();
+setupFramingControls();

@@ -33,7 +33,10 @@ export class Agent {
     // engine resolves it in `_resolveCasts` once `releaseTick` arrives.
     this.castState = null;
     this.statuses = []; // active status effects (burn/web/...) — see engine._updateStatuses
-    this.speedMultiplier = 1; // derived from statuses each tick
+    // Derived from the active statuses every tick (product of each status' value).
+    this.speedMultiplier = 1; // movement
+    this.damageTakenMultiplier = 1; // <1 = armored/shielded, >1 = vulnerable
+    this.damageDealtMultiplier = 1; // <1 = weakened, >1 = empowered
 
     this.killerId = null; // set on death, for the kill log
     this.memory = {}; // free scratch space species hooks may use (per-agent)

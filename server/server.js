@@ -61,7 +61,10 @@ function startBattle(overrides = {}) {
       `[battle] over — winner ${summary.winner} by ${summary.reason} ` +
         `in ${summary.durationSeconds}s (seed ${summary.seed}). Auto-restarting in 5s.`
     );
-    restartTimer = setTimeout(() => startBattle(), 5000); // keep the preview lively during dev
+    // Long enough for the renderer's showreel to finish: a ~4s slow-mo replay of
+    // the killing blow, then the winner card holds for a beat before the next
+    // battle wipes it. (With the showreel off it's just a generous end-card pause.)
+    restartTimer = setTimeout(() => startBattle(), 9000);
   });
 
   broadcast({ type: 'init', data: engine.getInitPayload() });

@@ -96,6 +96,18 @@ const spider = {
     },
   },
 
+  // Sound signature: fine chittering, and a taut "thwip" when silk goes out.
+  sfx: {
+    attack: [
+      { src: 'noise', filter: 'bandpass', f0: 3600, f1: 2200, q: 9, dur: 0.04, gain: 0.24, repeat: { times: 2, every: 0.045 } },
+    ],
+    ability: [
+      { src: 'noise', filter: 'bandpass', f0: 800, f1: 5200, q: 3, dur: 0.17, gain: 0.3 }, // silk paying out
+      { src: 'tone', wave: 'sine', f0: 900, f1: 2400, dur: 0.15, gain: 0.1 },
+    ],
+    death: [{ src: 'noise', filter: 'lowpass', f0: 1400, f1: 250, dur: 0.26, gain: 0.3 }],
+  },
+
   hooks: {},
 };
 
