@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- Acrobat Ant — top-down, facing up. Drawn mid-flick: the heart-shaped gaster
+       is folded UP over its own back (overlapping the thorax) rather than trailing
+       behind, which is the pose the real species is named for. -->
+  <defs>
+    <radialGradient id="acGaster" cx="42%" cy="30%" r="75%">
+      <stop offset="0%" stop-color="#ffb08a"/>
+      <stop offset="55%" stop-color="#e8734a"/>
+      <stop offset="100%" stop-color="#8f3316"/>
+    </radialGradient>
+    <radialGradient id="acThorax" cx="42%" cy="30%" r="80%">
+      <stop offset="0%" stop-color="#ff9d70"/>
+      <stop offset="100%" stop-color="#a2401b"/>
+    </radialGradient>
+    <radialGradient id="acHead" cx="42%" cy="30%" r="80%">
+      <stop offset="0%" stop-color="#ffa578"/>
+      <stop offset="100%" stop-color="#963a17"/>
+    </radialGradient>
+  </defs>
+
+  <g fill="none" stroke="#3a1206" stroke-width="3.3" stroke-linecap="round">
+    <g id="acLimbs">
+      <path d="M56 58 Q37 50 24 40"/>
+      <path d="M56 65 Q35 65 21 67"/>
+      <path d="M56 72 Q38 82 27 95"/>
+      <path d="M60 36 Q53 24 48 14"/>
+    </g>
+    <use href="#acLimbs" transform="matrix(-1 0 0 1 128 0)"/>
+  </g>
+
+  <g fill="none" stroke="#3a1206" stroke-width="2.5" stroke-linecap="round">
+    <path d="M59 33 Q55 28 51 27"/>
+    <path d="M69 33 Q73 28 77 27"/>
+  </g>
+
+  <!-- pedicel: the stalk the gaster has swung up and over on -->
+  <path d="M64 78 Q60 70 64 64" fill="none" stroke="#3a1206" stroke-width="4" stroke-linecap="round"/>
+
+  <!-- thorax + head first, so the raised gaster overlaps them -->
+  <ellipse cx="64" cy="65" rx="10.5" ry="13" fill="url(#acThorax)" stroke="#3a1206" stroke-width="3"/>
+  <circle cx="64" cy="41" r="10.5" fill="url(#acHead)" stroke="#3a1206" stroke-width="3"/>
+
+  <!-- the heart-shaped gaster, cocked up over the back -->
+  <path d="M64 44 Q49 44 46 58 Q44 72 64 84 Q84 72 82 58 Q79 44 64 44 Z"
+        fill="url(#acGaster)" stroke="#3a1206" stroke-width="3" opacity="0.97"/>
+  <path d="M52 58 Q64 64 76 58" fill="none" stroke="#5e1f0a" stroke-width="2" opacity="0.5"/>
+  <ellipse cx="56" cy="58" rx="4.5" ry="6" fill="#ffd9c4" opacity="0.35"/>
+
+  <circle cx="58" cy="41" r="2.3" fill="#2a0c03"/>
+  <circle cx="70" cy="41" r="2.3" fill="#2a0c03"/>
+</svg>

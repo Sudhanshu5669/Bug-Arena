@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- Vinegaroon (whip scorpion) — top-down, facing up. Flat dark segmented body,
+       heavy spined pedipalps held forward, one pair of legs modified into long thin
+       feelers, and the long whip-like tail (the flagellum) it aims acid with. -->
+  <defs>
+    <radialGradient id="vgBody" cx="40%" cy="26%" r="80%">
+      <stop offset="0%" stop-color="#6b5757"/>
+      <stop offset="52%" stop-color="#3b2f2f"/>
+      <stop offset="100%" stop-color="#120d0d"/>
+    </radialGradient>
+    <radialGradient id="vgHead" cx="42%" cy="28%" r="80%">
+      <stop offset="0%" stop-color="#5f4c4c"/>
+      <stop offset="100%" stop-color="#170f0f"/>
+    </radialGradient>
+  </defs>
+
+  <!-- the whip tail, trailing back and curling -->
+  <path d="M64 106 Q66 120 60 128" fill="none" stroke="#140f0f" stroke-width="3.4" stroke-linecap="round"/>
+  <path d="M64 106 Q66 120 60 128" fill="none" stroke="#6b5757" stroke-width="1.2" stroke-linecap="round" opacity="0.6"/>
+
+  <!-- heavy spined pedipalps, held forward and open -->
+  <g fill="none" stroke="#140f0f" stroke-width="6.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M52 44 L34 28 L40 12"/>
+    <path d="M76 44 L94 28 L88 12"/>
+  </g>
+  <g fill="none" stroke="#5a4747" stroke-width="2" stroke-linecap="round">
+    <path d="M52 44 L34 28 L40 12"/>
+    <path d="M76 44 L94 28 L88 12"/>
+  </g>
+  <!-- palp spines -->
+  <g stroke="#8a7070" stroke-width="1.6" stroke-linecap="round">
+    <path d="M38 24 L32 20 M44 32 L38 30 M90 24 L96 20 M84 32 L90 30"/>
+  </g>
+
+  <!-- long thin antenniform feeler legs -->
+  <g fill="none" stroke="#140f0f" stroke-width="2.4" stroke-linecap="round">
+    <path d="M54 52 Q30 40 8 24"/>
+    <path d="M74 52 Q98 40 120 24"/>
+  </g>
+
+  <!-- walking legs -->
+  <g fill="none" stroke="#140f0f" stroke-width="3.6" stroke-linecap="round">
+    <g id="vgLimbs">
+      <path d="M50 66 Q28 66 12 60"/>
+      <path d="M50 78 Q28 84 14 92"/>
+      <path d="M52 90 Q34 102 24 116"/>
+    </g>
+    <use href="#vgLimbs" transform="matrix(-1 0 0 1 128 0)"/>
+  </g>
+
+  <!-- flat segmented opisthosoma -->
+  <ellipse cx="64" cy="82" rx="17" ry="26" fill="url(#vgBody)" stroke="#140f0f" stroke-width="3.2"/>
+  <g fill="none" stroke="#241a1a" stroke-width="1.8" opacity="0.7">
+    <path d="M49 70 Q64 75 79 70"/>
+    <path d="M48 80 Q64 85 80 80"/>
+    <path d="M49 90 Q64 95 79 90"/>
+    <path d="M52 99 Q64 103 76 99"/>
+  </g>
+
+  <!-- carapace -->
+  <ellipse cx="64" cy="48" rx="15" ry="14" fill="url(#vgHead)" stroke="#140f0f" stroke-width="3.2"/>
+  <ellipse cx="56" cy="42" rx="5" ry="4" fill="#9a8080" opacity="0.22"/>
+
+  <!-- median eye pair plus lateral clusters -->
+  <circle cx="60" cy="40" r="2" fill="#0a0606"/>
+  <circle cx="68" cy="40" r="2" fill="#0a0606"/>
+  <g fill="#0a0606" opacity="0.85">
+    <circle cx="51" cy="45" r="1.3"/>
+    <circle cx="50" cy="49" r="1.3"/>
+    <circle cx="77" cy="45" r="1.3"/>
+    <circle cx="78" cy="49" r="1.3"/>
+  </g>
+</svg>

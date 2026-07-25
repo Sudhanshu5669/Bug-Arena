@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- Jack Jumper Ant — top-down, facing up. Black body with the vivid orange-yellow
+       legs and jaws of the real species, drawn mid-crouch: hind legs cocked wide and
+       folded, the way it loads a jump. Big forward-set eyes. -->
+  <defs>
+    <radialGradient id="jjGaster" cx="42%" cy="30%" r="75%">
+      <stop offset="0%" stop-color="#4a4a4a"/>
+      <stop offset="55%" stop-color="#1f1f1f"/>
+      <stop offset="100%" stop-color="#0a0a0a"/>
+    </radialGradient>
+    <radialGradient id="jjThorax" cx="42%" cy="30%" r="80%">
+      <stop offset="0%" stop-color="#5a4a20"/>
+      <stop offset="100%" stop-color="#20190a"/>
+    </radialGradient>
+    <radialGradient id="jjHead" cx="42%" cy="30%" r="80%">
+      <stop offset="0%" stop-color="#43433f"/>
+      <stop offset="100%" stop-color="#141412"/>
+    </radialGradient>
+  </defs>
+
+  <!-- legs: bright amber, hind pair cocked and folded for the spring -->
+  <g fill="none" stroke="#f0a202" stroke-width="3.6" stroke-linecap="round">
+    <g id="jjLimbs">
+      <path d="M56 54 Q36 45 22 33"/>
+      <path d="M56 61 Q34 62 20 66"/>
+      <path d="M57 70 Q44 84 30 82 Q22 80 20 94"/>
+    </g>
+    <use href="#jjLimbs" transform="matrix(-1 0 0 1 128 0)"/>
+  </g>
+  <!-- antennae stay dark -->
+  <g fill="none" stroke="#2a2205" stroke-width="2.8" stroke-linecap="round">
+    <path d="M59 30 Q52 18 47 8"/>
+    <path d="M69 30 Q76 18 81 8"/>
+  </g>
+
+  <!-- amber mandibles, held open -->
+  <g fill="none" stroke="#f0a202" stroke-width="3" stroke-linecap="round">
+    <path d="M58 27 Q49 20 44 17"/>
+    <path d="M70 27 Q79 20 84 17"/>
+  </g>
+
+  <ellipse cx="64" cy="92" rx="14" ry="19" fill="url(#jjGaster)" stroke="#1a1505" stroke-width="3"/>
+  <ellipse cx="64" cy="61" rx="10" ry="13" fill="url(#jjThorax)" stroke="#1a1505" stroke-width="3"/>
+  <circle cx="64" cy="37" r="11" fill="url(#jjHead)" stroke="#1a1505" stroke-width="3"/>
+
+  <path d="M51 85 Q64 91 77 85" fill="none" stroke="#f0a202" stroke-width="2" opacity="0.45"/>
+  <path d="M53 100 Q64 105 75 100" fill="none" stroke="#f0a202" stroke-width="2" opacity="0.35"/>
+
+  <!-- large forward eyes: it hunts by sight and tracks you across the arena -->
+  <circle cx="57" cy="36" r="3.2" fill="#1b1b1b" stroke="#f0a202" stroke-width="1.2"/>
+  <circle cx="71" cy="36" r="3.2" fill="#1b1b1b" stroke="#f0a202" stroke-width="1.2"/>
+  <circle cx="58" cy="35" r="1.1" fill="#ffe8b0" opacity="0.9"/>
+  <circle cx="72" cy="35" r="1.1" fill="#ffe8b0" opacity="0.9"/>
+</svg>

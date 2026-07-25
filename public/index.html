@@ -30,6 +30,9 @@
         max-width: 1360px;
         margin: 0 auto;
         padding: 16px;
+        /* Without this the stage card stretches to the sidebar's height and renders
+           as a tall empty panel below the canvas. */
+        align-items: start;
       }
       header {
         grid-column: 1 / -1;
@@ -99,13 +102,24 @@
       .bar > i { display: block; height: 100%; background: var(--a); transition: width 0.2s; }
       .meta { display: flex; justify-content: space-between; color: var(--muted); font-size: 12px; margin-top: 8px; }
       .roster { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+      /* Species vanish from these lists as they're wiped out — pinned for the same
+         no-reflow reason as .feed above. */
+      .roster .team-col > div { height: 132px; overflow-y: auto; }
+      #abilities { height: 96px; overflow-y: auto; }
       .roster .team-col h4 { margin: 0 0 6px; font-size: 12px; }
       .roster .team-col.a h4 { color: var(--a); }
       .roster .team-col.b h4 { color: var(--b); }
       .sp-row { display: flex; align-items: center; gap: 6px; font-size: 12px; margin-bottom: 3px; }
       .dot { width: 10px; height: 10px; border-radius: 50%; flex: none; border: 1px solid rgba(0,0,0,0.4); }
       .sp-row .cnt { margin-left: auto; color: var(--muted); font-variant-numeric: tabular-nums; }
-      .feed { max-height: 260px; overflow-y: auto; display: flex; flex-direction: column; gap: 3px; }
+      /* Every live panel below is a FIXED height, not a max-height.
+         The roster grid sits in the next grid row, so its vertical position is
+         `max(stage, sidebar)` — and anything in the sidebar that grows or shrinks
+         during a battle drags the whole roster up and down under the user's cursor.
+         The event feed was the worst offender (0 -> 260px as kills accumulated,
+         then back to 0 on the auto-restart), which made the +/- steppers genuinely
+         hard to hit. Fixed heights make the sidebar a constant. */
+      .feed { height: 260px; overflow-y: auto; display: flex; flex-direction: column; gap: 3px; }
       .feed .line { font-size: 12px; color: var(--muted); }
       .feed .line b { color: var(--text); font-weight: 600; }
       .controls { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -132,22 +146,95 @@
       .sound-hint { font-size: 10px; color: var(--muted); flex-basis: 100%; }
       .sound-hint.hidden { display: none; }
 
-      /* --- Fight builder --- */
-      .builder { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-      .bteam h4 { margin: 0 0 6px; font-size: 12px; }
-      .bteam h4.a { color: var(--a); }
-      .bteam h4.b { color: var(--b); }
-      .build-list { display: flex; flex-direction: column; gap: 4px; }
-      .build-row { display: flex; align-items: center; gap: 6px; font-size: 12px; opacity: 0.55; }
-      .build-row.has { opacity: 1; }
-      .build-row .bname { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-      .stepper { display: inline-flex; align-items: center; gap: 3px; }
-      .stepper button {
-        padding: 0 7px; font-size: 14px; line-height: 1.5; border-radius: 6px;
-        background: var(--panel-2); min-width: 22px;
+      /* --- Roster picker ------------------------------------------------------
+         Spans both grid columns and sits under the stage: 44 species need real
+         width, and a card grid is the only layout where the artwork does the
+         identifying instead of the text. */
+      .roster-panel { grid-column: 1 / -1; }
+      .roster-head {
+        display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+        margin-bottom: 12px;
       }
-      .stepper .bcount { min-width: 16px; text-align: center; font-variant-numeric: tabular-nums; }
-      .builder-foot { display: flex; align-items: center; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+      .roster-head .spacer { flex: 1; }
+      .search {
+        background: var(--panel-2); color: var(--text); border: 1px solid var(--line);
+        border-radius: 8px; padding: 7px 10px; font: inherit; font-size: 13px; width: 170px;
+      }
+      .search::placeholder { color: #5c6377; }
+
+      /* Army summary: the two colonies you have actually assembled. */
+      .armies { display: grid; grid-template-columns: 1fr auto 1fr; gap: 10px; align-items: stretch; margin-bottom: 12px; }
+      .army {
+        background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px;
+        padding: 10px 12px; min-height: 62px;
+      }
+      .army.a { border-left: 3px solid var(--a); }
+      .army.b { border-right: 3px solid var(--b); }
+      .army h4 { margin: 0 0 4px; font-size: 11px; letter-spacing: 0.6px; text-transform: uppercase; }
+      .army.a h4 { color: var(--a); }
+      .army.b h4 { color: var(--b); }
+      .army.b { text-align: right; }
+      .army .tally { font-size: 12px; color: var(--muted); }
+      .army .tally b { color: var(--text); font-variant-numeric: tabular-nums; }
+      .army .picks { font-size: 11px; color: var(--muted); margin-top: 3px; line-height: 1.45; }
+      .army .empty { color: #5c6377; font-style: italic; }
+      .vs { align-self: center; font-size: 13px; font-weight: 700; color: var(--muted); letter-spacing: 1px; }
+
+      .roster-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(158px, 1fr));
+        gap: 10px;
+      }
+      .sp-card {
+        background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px;
+        padding: 9px; display: flex; flex-direction: column; gap: 6px;
+        transition: border-color 0.15s, transform 0.1s;
+      }
+      .sp-card:hover { border-color: #3a445c; }
+      /* A species already in a fight is highlighted by whichever side took it. */
+      .sp-card.in-a { border-color: var(--a); box-shadow: inset 3px 0 0 -1px var(--a); }
+      .sp-card.in-b { border-color: var(--b); box-shadow: inset -3px 0 0 -1px var(--b); }
+      .sp-card.in-a.in-b { border-color: #8a7bd8; box-shadow: inset 3px 0 0 -1px var(--a), inset -3px 0 0 -1px var(--b); }
+      .sp-card.hidden { display: none; }
+
+      .sp-card .thumb {
+        width: 100%; height: 72px; object-fit: contain; display: block;
+        /* The art is authored facing UP; a slight drop shadow lifts it off the card. */
+        filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.5));
+      }
+      .sp-card .nm { font-size: 12.5px; font-weight: 600; line-height: 1.25; }
+      .sp-card .tier {
+        font-size: 9.5px; letter-spacing: 0.7px; text-transform: uppercase;
+        padding: 1px 5px; border-radius: 4px; align-self: flex-start;
+      }
+      .tier.soldier { background: #23331f; color: #9ed88f; }
+      .tier.champion { background: #33231f; color: #ffb37a; }
+      .sp-card .ab { font-size: 10.5px; color: #9aa3b7; line-height: 1.3; min-height: 27px; }
+      .sp-card .ab i { color: #6f7891; }
+      .sp-card .stats {
+        display: flex; gap: 7px; font-size: 10px; color: var(--muted);
+        font-variant-numeric: tabular-nums; border-top: 1px solid var(--line); padding-top: 5px;
+      }
+      .sp-card .stats span b { color: #c6ccda; font-weight: 600; }
+
+      /* Two steppers per card — assign to either colony without switching lists. */
+      .picker { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+      .pick {
+        display: flex; align-items: center; justify-content: space-between; gap: 2px;
+        background: var(--panel); border: 1px solid var(--line); border-radius: 7px; padding: 2px;
+      }
+      .pick.a.on { border-color: var(--a); background: #10243a; }
+      .pick.b.on { border-color: var(--b); background: #3a1620; }
+      .pick .lbl { font-size: 9.5px; font-weight: 700; padding-left: 3px; }
+      .pick.a .lbl { color: var(--a); }
+      .pick.b .lbl { color: var(--b); }
+      .pick button {
+        padding: 0; width: 19px; height: 19px; line-height: 1; font-size: 13px;
+        border-radius: 5px; background: var(--panel-2); display: grid; place-items: center;
+      }
+      .pick .n { min-width: 15px; text-align: center; font-size: 11.5px; font-variant-numeric: tabular-nums; }
+
+      .roster-foot { display: flex; align-items: center; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
       .seed-field { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 5px; }
       .seed-field input {
         width: 78px; background: var(--panel-2); color: var(--text);
@@ -155,14 +242,36 @@
       }
       .build-hint { font-size: 11px; color: var(--b); margin-top: 6px; min-height: 14px; }
 
-      @media (max-width: 900px) { .wrap { grid-template-columns: 1fr; } }
+      @media (max-width: 900px) {
+        .wrap { grid-template-columns: 1fr; }
+        .armies { grid-template-columns: 1fr; }
+        .vs { justify-self: center; }
+        .army.b { text-align: left; }
+      }
     </style>
+
+    <!-- Matter.js as a classic script: its UMD build puts `Matter` on window, and
+         classic scripts in <head> run before any deferred module. vendor/matter-shim.js
+         then re-exports that global for the engine's `import Matter from 'matter-js'`. -->
+    <script src="/vendor/matter.min.js"></script>
+
+    <!-- Import map: lets the UNMODIFIED engine source (which imports the bare
+         specifiers 'matter-js' and 'events', both Node-resolved) run as-is in the
+         browser. Same engine/ files power the Node headless renderer. -->
+    <script type="importmap">
+      {
+        "imports": {
+          "matter-js": "/vendor/matter-shim.js",
+          "events": "/vendor/events-shim.js"
+        }
+      }
+    </script>
   </head>
   <body>
     <div class="wrap">
       <header>
         <h1>🐛 Bug Arena</h1>
-        <span class="sub">live simulation preview — engine runs headless in Node, this is just a renderer</span>
+        <span class="sub">build a colony, pick your champions, and watch them fight — simulated live in your browser</span>
       </header>
 
       <div class="stage">
@@ -209,7 +318,6 @@
         <div class="card">
           <h3>Controls</h3>
           <div class="controls">
-            <button class="primary" id="btn-new">New Battle (random)</button>
             <span class="seg">
               <button id="mode-agg">Aggressive</button>
               <button id="mode-pass" class="active">Passive</button>
@@ -231,25 +339,46 @@
           <div class="meta"><span id="meta-seed">seed —</span></div>
         </div>
 
-        <div class="card">
-          <h3>Build a Fight</h3>
-          <div class="builder">
-            <div class="bteam">
-              <h4 class="a">Team A</h4>
-              <div id="build-a" class="build-list"></div>
-            </div>
-            <div class="bteam">
-              <h4 class="b">Team B</h4>
-              <div id="build-b" class="build-list"></div>
-            </div>
-          </div>
-          <div class="builder-foot">
-            <label class="seed-field">Seed <input id="build-seed" type="text" inputmode="numeric" placeholder="random" /></label>
-            <button class="primary" id="btn-simulate">Simulate ▶</button>
-            <button id="btn-clear-build">Clear</button>
-          </div>
-          <div class="build-hint" id="build-hint"></div>
+      </div>
+
+      <div class="card roster-panel">
+        <div class="roster-head">
+          <h3 style="margin:0">Roster</h3>
+          <span class="seg">
+            <button id="filt-all" class="active">All</button>
+            <button id="filt-soldier">Ants</button>
+            <button id="filt-champion">Bugs</button>
+          </span>
+          <input id="roster-search" class="search" type="search" placeholder="Search species…" />
+          <span class="spacer"></span>
+          <button id="btn-random-army">🎲 Random armies</button>
+          <button id="btn-mirror">⇄ Mirror A→B</button>
+          <button id="btn-clear-build">Clear</button>
         </div>
+
+        <div class="armies">
+          <div class="army a">
+            <h4>Team A</h4>
+            <div class="tally" id="tally-a"><b>0</b> units</div>
+            <div class="picks empty" id="picks-a">nothing picked</div>
+          </div>
+          <div class="vs">VS</div>
+          <div class="army b">
+            <h4>Team B</h4>
+            <div class="tally" id="tally-b"><b>0</b> units</div>
+            <div class="picks empty" id="picks-b">nothing picked</div>
+          </div>
+        </div>
+
+        <div class="roster-grid" id="roster-grid"></div>
+
+        <div class="roster-foot">
+          <button class="primary" id="btn-simulate">▶ Start Battle</button>
+          <label class="seed-field">Seed <input id="build-seed" type="text" inputmode="numeric" placeholder="random" /></label>
+          <span class="spacer"></span>
+          <button id="btn-new">New random battle</button>
+        </div>
+        <div class="build-hint" id="build-hint"></div>
       </div>
     </div>
 

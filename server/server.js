@@ -1,102 +1,34 @@
-// Dev preview server. THIS IS A DEV TOOL, not the future public API.
+// Static dev server.
 //
-// It runs a BugArenaEngine in this Node process and relays its snapshot stream
-// to any connected browser over WebSocket. The browser is a pure renderer — all
-// simulation happens here, headless-capable, exactly as it will on a server.
+// The simulation used to run HERE and stream snapshots to the browser over a
+// WebSocket. It doesn't any more: the engine runs in the page (see
+// public/localArena.js), which is what makes the game deployable as a static
+// site with no backend. So this file's only remaining job is to serve the source
+// tree with the same URL layout the production build produces.
 //
-// The future public `POST /api/simulate` is a DIFFERENT concern: it would call
-// `runBattle(config)` from engine/index.js and return a summary / video, with no
-// WebSocket and no browser. See the marked spot below.
+// It mirrors tools/buildStatic.js exactly — public/ at the root, plus the three
+// source directories the page imports from. If you change one, change both.
 
-import http from 'http';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import express from 'express';
-import { WebSocketServer } from 'ws';
-
-import { BugArenaEngine } from '../engine/index.js';
-import '../species/index.js'; // <-- loads + self-registers all species (engine never imports them)
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
 const PORT = process.env.PORT || 3000;
 
 const app = express();
+
+// public/ is the web root: /index.html, /client.js, /assets/…, /vendor/…
 app.use(express.static(path.join(ROOT, 'public')));
-app.use('/render', express.static(path.join(ROOT, 'render'))); // client imports the shared renderer
 
-// ---- Future public API would live here (NOT built for v1) -------------------
-// import { runBattle } from '../engine/index.js';
-// app.post('/api/simulate', express.json(), (req, res) => {
-//   const result = runBattle(req.body?.config ?? {}, { collectSnapshots: true });
-//   res.json(result.summary);            // or pipe result.snapshots -> videoRenderer.js
-// });
-// -----------------------------------------------------------------------------
+// The page imports these as absolute URLs (/engine/index.js, /species/index.js,
+// /render/canvasRenderer.js), so they're mounted at matching paths.
+app.use('/engine', express.static(path.join(ROOT, 'engine')));
+app.use('/species', express.static(path.join(ROOT, 'species')));
+app.use('/render', express.static(path.join(ROOT, 'render')));
 
-const server = http.createServer(app);
-const wss = new WebSocketServer({ server });
-
-let engine = null;
-let lastOverrides = { mode: 'passive' }; // forage-first is the default battle feel
-let restartTimer = null;
-
-function broadcast(message) {
-  const data = JSON.stringify(message);
-  for (const client of wss.clients) {
-    if (client.readyState === 1 /* OPEN */) client.send(data);
-  }
-}
-
-function startBattle(overrides = {}) {
-  clearTimeout(restartTimer);
-  if (engine) engine.stop();
-
-  lastOverrides = { ...lastOverrides, ...overrides };
-  engine = new BugArenaEngine(lastOverrides);
-
-  engine.on('snapshot', (snapshot) => broadcast({ type: 'snapshot', data: snapshot }));
-  engine.on('end', (summary) => {
-    broadcast({ type: 'end', data: summary });
-    console.log(
-      `[battle] over — winner ${summary.winner} by ${summary.reason} ` +
-        `in ${summary.durationSeconds}s (seed ${summary.seed}). Auto-restarting in 5s.`
-    );
-    // Long enough for the renderer's showreel to finish: a ~4s slow-mo replay of
-    // the killing blow, then the winner card holds for a beat before the next
-    // battle wipes it. (With the showreel off it's just a generous end-card pause.)
-    restartTimer = setTimeout(() => startBattle(), 9000);
-  });
-
-  broadcast({ type: 'init', data: engine.getInitPayload() });
-  engine.start();
-  console.log(`[battle] started — mode "${lastOverrides.mode}", seed ${engine.seed}`);
-}
-
-wss.on('connection', (ws) => {
-  // Bring a freshly-connected client up to speed on the battle already running.
-  if (engine) {
-    ws.send(JSON.stringify({ type: 'init', data: engine.getInitPayload() }));
-    if (engine.lastSnapshot) {
-      ws.send(JSON.stringify({ type: 'snapshot', data: engine.lastSnapshot }));
-    }
-  }
-
-  ws.on('message', (raw) => {
-    let msg;
-    try {
-      msg = JSON.parse(raw.toString());
-    } catch {
-      return;
-    }
-    if (msg.cmd === 'restart') {
-      startBattle(msg.config || {});
-    } else if (msg.cmd === 'setMode') {
-      startBattle({ mode: msg.mode });
-    }
-  });
-});
-
-server.listen(PORT, () => {
-  console.log(`\n  Bug Arena preview → http://localhost:${PORT}\n`);
-  startBattle(lastOverrides);
+app.listen(PORT, () => {
+  console.log(`\n  Bug Arena → http://localhost:${PORT}\n`);
+  console.log('  Simulation runs in the browser. This server only serves files.\n');
 });

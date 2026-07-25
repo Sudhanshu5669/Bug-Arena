@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- Thief Ant — top-down, facing up. One of the smallest ants there is: a compact
+       tan body, stubby antennae, and an oversized gaster it uses to carry off
+       whatever it has just taken. Drawn hunched, low to the ground. -->
+  <defs>
+    <radialGradient id="thGaster" cx="42%" cy="28%" r="78%">
+      <stop offset="0%" stop-color="#e8c9a8"/>
+      <stop offset="52%" stop-color="#b08968"/>
+      <stop offset="100%" stop-color="#5e442c"/>
+    </radialGradient>
+    <radialGradient id="thThorax" cx="42%" cy="30%" r="80%">
+      <stop offset="0%" stop-color="#dcbd9a"/>
+      <stop offset="100%" stop-color="#6d5137"/>
+    </radialGradient>
+    <radialGradient id="thHead" cx="42%" cy="30%" r="80%">
+      <stop offset="0%" stop-color="#e0c2a0"/>
+      <stop offset="100%" stop-color="#684d34"/>
+    </radialGradient>
+  </defs>
+
+  <!-- short scuttling legs, held tight to the body -->
+  <g fill="none" stroke="#2f2013" stroke-width="2.8" stroke-linecap="round">
+    <g id="thLimbs">
+      <path d="M57 60 Q44 54 35 47"/>
+      <path d="M57 66 Q43 67 33 70"/>
+      <path d="M57 72 Q45 80 37 89"/>
+      <path d="M60 44 Q56 37 54 31"/>
+    </g>
+    <use href="#thLimbs" transform="matrix(-1 0 0 1 128 0)"/>
+  </g>
+
+  <g fill="none" stroke="#2f2013" stroke-width="2" stroke-linecap="round">
+    <path d="M60 41 Q57 37 53 36"/>
+    <path d="M68 41 Q71 37 75 36"/>
+  </g>
+
+  <!-- oversized gaster: the swag bag -->
+  <ellipse cx="64" cy="88" rx="13" ry="16" fill="url(#thGaster)" stroke="#2f2013" stroke-width="2.8"/>
+  <ellipse cx="64" cy="66" rx="8" ry="10" fill="url(#thThorax)" stroke="#2f2013" stroke-width="2.8"/>
+  <circle cx="64" cy="48" r="8.5" fill="url(#thHead)" stroke="#2f2013" stroke-width="2.8"/>
+
+  <!-- something bulging inside that it did not pay for -->
+  <ellipse cx="64" cy="90" rx="6" ry="7" fill="#ffdca8" opacity="0.55"/>
+  <path d="M54 83 Q64 88 74 83" fill="none" stroke="#4a3520" stroke-width="1.8" opacity="0.55"/>
+  <path d="M56 96 Q64 100 72 96" fill="none" stroke="#4a3520" stroke-width="1.8" opacity="0.45"/>
+
+  <circle cx="59" cy="48" r="1.9" fill="#241809"/>
+  <circle cx="69" cy="48" r="1.9" fill="#241809"/>
+  <circle cx="59.5" cy="47.4" r="0.7" fill="#ffe9cc" opacity="0.8"/>
+</svg>

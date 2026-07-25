@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- Goliath Beetle — top-down, facing up. Enormous and unmistakable: the real
+       animal's white elytra with bold black striping, a dark pronotum, and the
+       forked Y-shaped horn the males use to shove rivals off branches. -->
+  <defs>
+    <radialGradient id="gbElytra" cx="38%" cy="24%" r="82%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="55%" stop-color="#e8e2d0"/>
+      <stop offset="100%" stop-color="#a89f88"/>
+    </radialGradient>
+    <radialGradient id="gbPronotum" cx="40%" cy="26%" r="80%">
+      <stop offset="0%" stop-color="#4a4238"/>
+      <stop offset="60%" stop-color="#241f18"/>
+      <stop offset="100%" stop-color="#0e0b07"/>
+    </radialGradient>
+  </defs>
+
+  <!-- thick legs with tarsal claws -->
+  <g fill="none" stroke="#1a1712" stroke-width="6.5" stroke-linecap="round" stroke-linejoin="round">
+    <g id="gbLimbs">
+      <path d="M44 54 L22 42 L10 48"/>
+      <path d="M42 76 L16 76 L6 86"/>
+      <path d="M46 96 L24 110 L16 124"/>
+    </g>
+    <use href="#gbLimbs" transform="matrix(-1 0 0 1 128 0)"/>
+  </g>
+
+  <!-- the forked head horn -->
+  <g fill="none" stroke="#1a1712" stroke-width="7" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M64 30 L64 20 L54 8"/>
+    <path d="M64 20 L74 8"/>
+  </g>
+  <g fill="none" stroke="#5a5044" stroke-width="2.2" stroke-linecap="round">
+    <path d="M64 28 L64 20 L55 10"/>
+    <path d="M64 20 L73 10"/>
+  </g>
+
+  <!-- head -->
+  <ellipse cx="64" cy="38" rx="12" ry="9" fill="url(#gbPronotum)" stroke="#1a1712" stroke-width="3"/>
+
+  <!-- pronotum: the broad dark shield behind the head -->
+  <ellipse cx="64" cy="55" rx="21" ry="14" fill="url(#gbPronotum)" stroke="#1a1712" stroke-width="3.4"/>
+  <ellipse cx="55" cy="50" rx="7" ry="4.5" fill="#8a7f6c" opacity="0.28"/>
+
+  <!-- elytra: the huge white wing cases -->
+  <ellipse cx="64" cy="88" rx="27" ry="31" fill="url(#gbElytra)" stroke="#1a1712" stroke-width="3.6"/>
+  <!-- midline seam -->
+  <path d="M64 58 L64 118" stroke="#1a1712" stroke-width="2.6"/>
+  <!-- the bold black striping of the real species -->
+  <g fill="#1a1712" opacity="0.9">
+    <path d="M44 70 Q50 78 47 92 Q42 84 40 74 Z"/>
+    <path d="M84 70 Q78 78 81 92 Q86 84 88 74 Z"/>
+    <path d="M52 100 Q56 108 54 114 Q49 108 48 102 Z"/>
+    <path d="M76 100 Q72 108 74 114 Q79 108 80 102 Z"/>
+  </g>
+  <ellipse cx="52" cy="74" rx="8" ry="12" fill="#ffffff" opacity="0.3"/>
+
+  <!-- eyes tucked beside the horn base -->
+  <circle cx="55" cy="37" r="2.4" fill="#0b0906"/>
+  <circle cx="73" cy="37" r="2.4" fill="#0b0906"/>
+</svg>

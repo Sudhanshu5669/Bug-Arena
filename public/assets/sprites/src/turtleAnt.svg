@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- Turtle Ant — top-down, facing up. The whole silhouette is the HEAD: a huge
+       flat armoured disc the soldier uses to physically plug a nest entrance.
+       Everything behind it is small, squat, and plated. -->
+  <defs>
+    <radialGradient id="tuGaster" cx="42%" cy="30%" r="75%">
+      <stop offset="0%" stop-color="#9aa08a"/>
+      <stop offset="55%" stop-color="#6b705c"/>
+      <stop offset="100%" stop-color="#33372a"/>
+    </radialGradient>
+    <radialGradient id="tuThorax" cx="42%" cy="30%" r="80%">
+      <stop offset="0%" stop-color="#8f9580"/>
+      <stop offset="100%" stop-color="#474c3a"/>
+    </radialGradient>
+    <radialGradient id="tuHead" cx="38%" cy="28%" r="85%">
+      <stop offset="0%" stop-color="#adb39c"/>
+      <stop offset="60%" stop-color="#767c66"/>
+      <stop offset="100%" stop-color="#3a3f2e"/>
+    </radialGradient>
+  </defs>
+
+  <!-- short, stout legs tucked close to the body -->
+  <g fill="none" stroke="#22261b" stroke-width="4" stroke-linecap="round">
+    <g id="tuLimbs">
+      <path d="M55 62 Q41 56 32 48"/>
+      <path d="M55 70 Q39 71 30 74"/>
+      <path d="M55 78 Q41 87 33 97"/>
+      <path d="M58 44 Q53 36 50 28"/>
+    </g>
+    <use href="#tuLimbs" transform="matrix(-1 0 0 1 128 0)"/>
+  </g>
+
+  <ellipse cx="64" cy="94" rx="14" ry="16" fill="url(#tuGaster)" stroke="#22261b" stroke-width="3"/>
+  <ellipse cx="64" cy="71" rx="11" ry="11" fill="url(#tuThorax)" stroke="#22261b" stroke-width="3"/>
+
+  <!-- the door: an oversized flat disc, rimmed and riveted -->
+  <circle cx="64" cy="41" r="21" fill="url(#tuHead)" stroke="#22261b" stroke-width="3.5"/>
+  <circle cx="64" cy="41" r="15.5" fill="none" stroke="#2c3122" stroke-width="2" opacity="0.7"/>
+  <circle cx="64" cy="41" r="9" fill="none" stroke="#2c3122" stroke-width="1.8" opacity="0.55"/>
+  <!-- rivets around the rim -->
+  <g fill="#2c3122" opacity="0.8">
+    <circle cx="64" cy="24" r="1.7"/>
+    <circle cx="76" cy="29" r="1.7"/>
+    <circle cx="81" cy="41" r="1.7"/>
+    <circle cx="76" cy="53" r="1.7"/>
+    <circle cx="64" cy="58" r="1.7"/>
+    <circle cx="52" cy="53" r="1.7"/>
+    <circle cx="47" cy="41" r="1.7"/>
+    <circle cx="52" cy="29" r="1.7"/>
+  </g>
+  <ellipse cx="55" cy="32" rx="6" ry="4.5" fill="#e2e6d4" opacity="0.25"/>
+
+  <!-- small eyes set into the rim of the plate -->
+  <circle cx="53" cy="45" r="2.1" fill="#171a10"/>
+  <circle cx="75" cy="45" r="2.1" fill="#171a10"/>
+</svg>

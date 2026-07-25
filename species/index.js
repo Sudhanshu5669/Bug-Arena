@@ -18,6 +18,16 @@ import './carpenterAnt.js';
 import './crazyAnt.js';
 import './harvesterAnt.js';
 import './bulldogAnt.js';
+import './weaverAnt.js';
+import './amazonAnt.js';
+import './acrobatAnt.js';
+import './turtleAnt.js';
+import './draculaAnt.js';
+import './jackJumperAnt.js';
+import './pharaohAnt.js';
+import './thiefAnt.js';
+import './argentineAnt.js';
+import './zombieAnt.js';
 
 // --- champion tier (bugs) ---
 import './spider.js';
@@ -32,5 +42,15 @@ import './assassinBug.js';
 import './spitter.js';
 import './widow.js';
 import './antlion.js';
+import './tarantulaHawk.js';
+import './waterBug.js';
+import './vinegaroon.js';
+import './goliathBeetle.js';
+import './dragonfly.js';
+import './jumpingSpider.js';
+import './velvetWorm.js';
+import './jewelWasp.js';
+import './coachHorse.js';
+import './solifuge.js';
 
 export { registerSpecies, getSpecies, listSpecies, getCatalog } from './registry.js';

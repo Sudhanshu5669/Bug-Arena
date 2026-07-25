@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- Weaver Ant — top-down, facing up. Slender leaf-green body, silk gland at the
+       gaster tip, and wide open mandibles (it carries leaves and enemies alike). -->
+  <defs>
+    <radialGradient id="wvGaster" cx="42%" cy="30%" r="75%">
+      <stop offset="0%" stop-color="#c9ec6a"/>
+      <stop offset="55%" stop-color="#8ac926"/>
+      <stop offset="100%" stop-color="#4a7314"/>
+    </radialGradient>
+    <radialGradient id="wvThorax" cx="42%" cy="30%" r="80%">
+      <stop offset="0%" stop-color="#b5e05a"/>
+      <stop offset="100%" stop-color="#5f8f18"/>
+    </radialGradient>
+    <radialGradient id="wvHead" cx="42%" cy="30%" r="80%">
+      <stop offset="0%" stop-color="#bde85f"/>
+      <stop offset="100%" stop-color="#587f16"/>
+    </radialGradient>
+  </defs>
+
+  <!-- legs + antennae (long and spidery — it spans gaps between leaves) -->
+  <g fill="none" stroke="#25400a" stroke-width="3.2" stroke-linecap="round">
+    <g id="wvLimbs">
+      <path d="M56 54 Q35 44 21 32"/>
+      <path d="M56 61 Q34 60 19 62"/>
+      <path d="M56 68 Q37 78 25 92"/>
+      <path d="M60 31 Q52 19 47 9"/>
+    </g>
+    <use href="#wvLimbs" transform="matrix(-1 0 0 1 128 0)"/>
+  </g>
+
+  <!-- open mandibles, carrying-wide -->
+  <g fill="none" stroke="#25400a" stroke-width="2.8" stroke-linecap="round">
+    <path d="M58 28 Q50 21 44 20"/>
+    <path d="M70 28 Q78 21 84 20"/>
+  </g>
+
+  <!-- body segments — narrow waist, elongated gaster -->
+  <ellipse cx="64" cy="93" rx="13" ry="21" fill="url(#wvGaster)" stroke="#25400a" stroke-width="3"/>
+  <ellipse cx="64" cy="60" rx="10" ry="13" fill="url(#wvThorax)" stroke="#25400a" stroke-width="3"/>
+  <circle cx="64" cy="37" r="10.5" fill="url(#wvHead)" stroke="#25400a" stroke-width="3"/>
+
+  <!-- silk gland: a pale bead at the gaster tip -->
+  <ellipse cx="64" cy="112" rx="5" ry="4" fill="#f2ffd9" opacity="0.85" stroke="#25400a" stroke-width="1.6"/>
+  <path d="M52 86 Q64 92 76 86" fill="none" stroke="#3c5c0e" stroke-width="2" opacity="0.55"/>
+  <path d="M54 101 Q64 106 74 101" fill="none" stroke="#3c5c0e" stroke-width="2" opacity="0.5"/>
+  <ellipse cx="58" cy="85" rx="4.5" ry="6.5" fill="#e8ffb0" opacity="0.35"/>
+
+  <!-- eyes -->
+  <circle cx="58" cy="37" r="2.3" fill="#16260a"/>
+  <circle cx="70" cy="37" r="2.3" fill="#16260a"/>
+  <circle cx="59" cy="36" r="0.9" fill="#eaffc4" opacity="0.8"/>
+</svg>

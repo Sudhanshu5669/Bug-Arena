@@ -1,0 +1,81 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- Devil's Coach Horse — top-down, facing up. A long matte-black rove beetle with
+       famously SHORT elytra that cover only the front of a long flexible abdomen.
+       Drawn in its threat display: abdomen curled up scorpion-fashion, jaws gaping,
+       with the twin defensive glands venting at the raised tip. -->
+  <defs>
+    <radialGradient id="chBody" cx="38%" cy="26%" r="82%">
+      <stop offset="0%" stop-color="#4a4a4a"/>
+      <stop offset="50%" stop-color="#1c1c1c"/>
+      <stop offset="100%" stop-color="#000000"/>
+    </radialGradient>
+    <radialGradient id="chElytra" cx="40%" cy="26%" r="80%">
+      <stop offset="0%" stop-color="#585858"/>
+      <stop offset="100%" stop-color="#0d0d0d"/>
+    </radialGradient>
+    <radialGradient id="chReek" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#c9a8e8" stop-opacity="0.55"/>
+      <stop offset="100%" stop-color="#7a4fb0" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- the stink, venting from the raised tip -->
+  <circle cx="64" cy="104" r="24" fill="url(#chReek)"/>
+
+  <!-- long sprawling legs -->
+  <g fill="none" stroke="#000000" stroke-width="4.6" stroke-linecap="round" stroke-linejoin="round">
+    <g id="chLegs">
+      <path d="M52 46 L32 34 L20 40"/>
+      <path d="M50 60 L28 58 L16 68"/>
+      <path d="M52 74 L32 82 L24 96"/>
+    </g>
+    <use href="#chLegs" transform="matrix(-1 0 0 1 128 0)"/>
+  </g>
+
+  <!-- head, held forward with jaws open -->
+  <ellipse cx="64" cy="30" rx="12" ry="11" fill="url(#chBody)" stroke="#000000" stroke-width="3"/>
+  <g fill="none" stroke="#000000" stroke-width="4" stroke-linecap="round">
+    <path d="M57 22 Q50 12 46 4"/>
+    <path d="M71 22 Q78 12 82 4"/>
+  </g>
+  <g fill="none" stroke="#3a3a3a" stroke-width="1.6" stroke-linecap="round">
+    <path d="M57 22 Q51 13 47 6"/>
+    <path d="M71 22 Q77 13 81 6"/>
+  </g>
+  <!-- antennae -->
+  <g fill="none" stroke="#000000" stroke-width="2.4" stroke-linecap="round">
+    <path d="M54 32 Q40 26 28 20"/>
+    <path d="M74 32 Q88 26 100 20"/>
+  </g>
+
+  <!-- pronotum -->
+  <ellipse cx="64" cy="48" rx="13" ry="11" fill="url(#chBody)" stroke="#000000" stroke-width="3"/>
+
+  <!-- the short elytra — they stop well before the abdomen does -->
+  <path d="M52 58 L76 58 L74 78 L54 78 Z" fill="url(#chElytra)" stroke="#000000" stroke-width="2.8"/>
+  <path d="M64 58 L64 78" stroke="#000000" stroke-width="2"/>
+  <ellipse cx="58" cy="64" rx="4" ry="6" fill="#6e6e6e" opacity="0.28"/>
+
+  <!-- the long flexible abdomen, curled up and over -->
+  <path d="M56 78 Q52 96 58 110 Q64 120 72 112 Q78 104 74 96"
+        fill="none" stroke="#000000" stroke-width="15" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M56 78 Q52 96 58 110 Q64 120 72 112 Q78 104 74 96"
+        fill="none" stroke="#2e2e2e" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- segment divisions along the curl -->
+  <g fill="none" stroke="#000000" stroke-width="1.8" opacity="0.8">
+    <path d="M49 88 L63 90"/>
+    <path d="M52 100 L65 99"/>
+    <path d="M60 112 L68 106"/>
+  </g>
+
+  <!-- the paired glands at the tip -->
+  <g fill="#3a3a3a" stroke="#000000" stroke-width="1.6">
+    <circle cx="76" cy="94" r="3.4"/>
+    <circle cx="70" cy="90" r="2.8"/>
+  </g>
+
+  <!-- eyes -->
+  <circle cx="57" cy="29" r="2.4" fill="#000000"/>
+  <circle cx="71" cy="29" r="2.4" fill="#000000"/>
+  <circle cx="57.6" cy="28.2" r="0.9" fill="#8a8a8a" opacity="0.7"/>
+</svg>

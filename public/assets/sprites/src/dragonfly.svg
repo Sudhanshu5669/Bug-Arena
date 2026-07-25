@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- Dragonfly — top-down, facing up. Four separately-articulated translucent
+       wings held out flat (never folded), a long slender segmented abdomen, and the
+       enormous wraparound compound eyes that meet at the top of the head. -->
+  <defs>
+    <radialGradient id="dfAbdomen" cx="42%" cy="20%" r="82%">
+      <stop offset="0%" stop-color="#7ef0e2"/>
+      <stop offset="50%" stop-color="#2ec4b6"/>
+      <stop offset="100%" stop-color="#0e5a53"/>
+    </radialGradient>
+    <radialGradient id="dfThorax" cx="40%" cy="28%" r="80%">
+      <stop offset="0%" stop-color="#5ee0d0"/>
+      <stop offset="100%" stop-color="#11665e"/>
+    </radialGradient>
+    <radialGradient id="dfEye" cx="35%" cy="30%" r="80%">
+      <stop offset="0%" stop-color="#9dfff2"/>
+      <stop offset="55%" stop-color="#28b7ab"/>
+      <stop offset="100%" stop-color="#0b4a45"/>
+    </radialGradient>
+    <linearGradient id="dfWing" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#dffcff" stop-opacity="0.5"/>
+      <stop offset="100%" stop-color="#8fd8e8" stop-opacity="0.28"/>
+    </linearGradient>
+  </defs>
+
+  <!-- four wings held flat and outstretched -->
+  <g stroke="#3a7d86" stroke-width="1.3">
+    <ellipse cx="30" cy="44" rx="30" ry="8.5" fill="url(#dfWing)" transform="rotate(-16 30 44)"/>
+    <ellipse cx="98" cy="44" rx="30" ry="8.5" fill="url(#dfWing)" transform="rotate(16 98 44)"/>
+    <ellipse cx="32" cy="64" rx="28" ry="8" fill="url(#dfWing)" transform="rotate(12 32 64)"/>
+    <ellipse cx="96" cy="64" rx="28" ry="8" fill="url(#dfWing)" transform="rotate(-12 96 64)"/>
+  </g>
+  <!-- wing venation -->
+  <g fill="none" stroke="#4e959e" stroke-width="0.7" opacity="0.55">
+    <path d="M8 50 L56 42 M10 46 L54 39 M12 54 L56 45"/>
+    <path d="M120 50 L72 42 M118 46 L74 39 M116 54 L72 45"/>
+    <path d="M8 70 L56 62 M10 66 L54 59"/>
+    <path d="M120 70 L72 62 M118 66 L74 59"/>
+  </g>
+  <!-- pterostigma: the dark cell near each wingtip -->
+  <g fill="#2c6a72" opacity="0.7">
+    <rect x="10" y="40" width="7" height="3" rx="1.2" transform="rotate(-16 13 41)"/>
+    <rect x="111" y="40" width="7" height="3" rx="1.2" transform="rotate(16 115 41)"/>
+  </g>
+
+  <!-- legs, tucked forward into a catching basket -->
+  <g fill="none" stroke="#0e4b45" stroke-width="2.6" stroke-linecap="round">
+    <path d="M56 52 Q46 44 44 34"/>
+    <path d="M56 57 Q44 52 40 44"/>
+    <path d="M72 52 Q82 44 84 34"/>
+    <path d="M72 57 Q84 52 88 44"/>
+  </g>
+
+  <!-- long slender abdomen with segment rings -->
+  <path d="M60 62 Q58 96 62 122 Q64 126 66 122 Q70 96 68 62 Z"
+        fill="url(#dfAbdomen)" stroke="#0b4a45" stroke-width="2.6"/>
+  <g stroke="#0b4a45" stroke-width="1.5" opacity="0.6">
+    <path d="M59 76 L69 76"/>
+    <path d="M59 88 L69 88"/>
+    <path d="M60 100 L68 100"/>
+    <path d="M61 111 L67 111"/>
+  </g>
+  <!-- tail claspers -->
+  <g stroke="#0b4a45" stroke-width="2.2" stroke-linecap="round">
+    <path d="M62 122 L59 128"/>
+    <path d="M66 122 L69 128"/>
+  </g>
+
+  <!-- thorax -->
+  <ellipse cx="64" cy="56" rx="11" ry="13" fill="url(#dfThorax)" stroke="#0b4a45" stroke-width="3"/>
+  <ellipse cx="59" cy="51" rx="4" ry="5" fill="#c4fff6" opacity="0.35"/>
+
+  <!-- head, dominated by the two huge eyes meeting at the midline -->
+  <circle cx="64" cy="34" r="8" fill="url(#dfThorax)" stroke="#0b4a45" stroke-width="2.4"/>
+  <circle cx="56" cy="31" r="9.5" fill="url(#dfEye)" stroke="#0b4a45" stroke-width="2.2"/>
+  <circle cx="72" cy="31" r="9.5" fill="url(#dfEye)" stroke="#0b4a45" stroke-width="2.2"/>
+  <circle cx="53" cy="27" r="2.6" fill="#e8fffb" opacity="0.55"/>
+  <circle cx="69" cy="27" r="2.6" fill="#e8fffb" opacity="0.45"/>
+</svg>

@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- Pharaoh Ant — top-down, facing up. Tiny, pale amber and near-translucent, with
+       a darker gaster tip. Drawn small in frame on purpose: it is the least
+       imposing thing in the roster, and there are always more of them. -->
+  <defs>
+    <radialGradient id="phGaster" cx="42%" cy="28%" r="78%">
+      <stop offset="0%" stop-color="#ffeccd"/>
+      <stop offset="50%" stop-color="#e0c097"/>
+      <stop offset="100%" stop-color="#8a6a45"/>
+    </radialGradient>
+    <radialGradient id="phThorax" cx="42%" cy="30%" r="80%">
+      <stop offset="0%" stop-color="#ffe6c0"/>
+      <stop offset="100%" stop-color="#9d7a52"/>
+    </radialGradient>
+    <radialGradient id="phHead" cx="42%" cy="30%" r="80%">
+      <stop offset="0%" stop-color="#ffeacb"/>
+      <stop offset="100%" stop-color="#96744d"/>
+    </radialGradient>
+  </defs>
+
+  <g fill="none" stroke="#4a3520" stroke-width="2.6" stroke-linecap="round">
+    <g id="phLimbs">
+      <path d="M57 58 Q42 51 31 42"/>
+      <path d="M57 64 Q41 64 30 66"/>
+      <path d="M57 70 Q43 79 34 89"/>
+      <path d="M60 40 Q54 30 50 22"/>
+    </g>
+    <use href="#phLimbs" transform="matrix(-1 0 0 1 128 0)"/>
+  </g>
+
+  <g fill="none" stroke="#4a3520" stroke-width="2" stroke-linecap="round">
+    <path d="M60 37 Q57 33 54 32"/>
+    <path d="M68 37 Q71 33 74 32"/>
+  </g>
+
+  <!-- smaller body than the other ants — scaled down inside the same 128 box -->
+  <ellipse cx="64" cy="86" rx="11" ry="15" fill="url(#phGaster)" stroke="#4a3520" stroke-width="2.6"/>
+  <ellipse cx="64" cy="63" rx="8" ry="10" fill="url(#phThorax)" stroke="#4a3520" stroke-width="2.6"/>
+  <circle cx="64" cy="44" r="8.5" fill="url(#phHead)" stroke="#4a3520" stroke-width="2.6"/>
+
+  <!-- the dark tip the species is recognised by -->
+  <path d="M55 92 Q64 103 73 92 Q64 101 55 92 Z" fill="#5c452a" opacity="0.75"/>
+  <path d="M54 81 Q64 86 74 81" fill="none" stroke="#7a5c38" stroke-width="1.8" opacity="0.55"/>
+  <ellipse cx="59" cy="80" rx="3.5" ry="5" fill="#fff6e4" opacity="0.5"/>
+
+  <circle cx="59" cy="44" r="1.9" fill="#3a2a15"/>
+  <circle cx="69" cy="44" r="1.9" fill="#3a2a15"/>
+</svg>

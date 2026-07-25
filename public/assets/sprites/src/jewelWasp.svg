@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- Jewel Wasp (emerald cockroach wasp) — top-down, facing up. Brilliant metallic
+       blue-green body with the deep red femora of the real species, a narrow wasp
+       waist, and a long fine ovipositor built for precision rather than power. -->
+  <defs>
+    <radialGradient id="jwAbdomen" cx="38%" cy="24%" r="82%">
+      <stop offset="0%" stop-color="#6ff0dd"/>
+      <stop offset="45%" stop-color="#0f9b8e"/>
+      <stop offset="100%" stop-color="#04413c"/>
+    </radialGradient>
+    <radialGradient id="jwThorax" cx="40%" cy="28%" r="80%">
+      <stop offset="0%" stop-color="#4fd8c6"/>
+      <stop offset="100%" stop-color="#06504a"/>
+    </radialGradient>
+    <linearGradient id="jwWing" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ddfdfa" stop-opacity="0.45"/>
+      <stop offset="100%" stop-color="#7fd8cc" stop-opacity="0.22"/>
+    </linearGradient>
+  </defs>
+
+  <!-- wings, swept back -->
+  <g stroke="#2a6f68" stroke-width="1.2">
+    <ellipse cx="45" cy="72" rx="9" ry="25" fill="url(#jwWing)" transform="rotate(17 45 72)"/>
+    <ellipse cx="83" cy="72" rx="9" ry="25" fill="url(#jwWing)" transform="rotate(-17 83 72)"/>
+  </g>
+
+  <!-- legs: dark tibiae with the distinctive deep-red femora -->
+  <g fill="none" stroke="#8c1c2b" stroke-width="5" stroke-linecap="round">
+    <path d="M54 52 L38 42"/>
+    <path d="M53 62 L36 60"/>
+    <path d="M55 72 L40 80"/>
+    <path d="M74 52 L90 42"/>
+    <path d="M75 62 L92 60"/>
+    <path d="M73 72 L88 80"/>
+  </g>
+  <g fill="none" stroke="#06413c" stroke-width="3" stroke-linecap="round">
+    <path d="M38 42 L24 30"/>
+    <path d="M36 60 L18 58"/>
+    <path d="M40 80 L26 94"/>
+    <path d="M90 42 L104 30"/>
+    <path d="M92 60 L110 58"/>
+    <path d="M88 80 L102 94"/>
+  </g>
+
+  <!-- abdomen, slung on a narrow petiole -->
+  <path d="M64 70 L64 78" stroke="#06413c" stroke-width="4.5" stroke-linecap="round"/>
+  <ellipse cx="64" cy="94" rx="13" ry="19" fill="url(#jwAbdomen)" stroke="#04413c" stroke-width="3"/>
+  <g fill="none" stroke="#04413c" stroke-width="1.6" opacity="0.55">
+    <path d="M53 88 Q64 93 75 88"/>
+    <path d="M54 100 Q64 105 74 100"/>
+  </g>
+  <ellipse cx="58" cy="86" rx="4.5" ry="6" fill="#c4fff6" opacity="0.35"/>
+
+  <!-- the fine ovipositor -->
+  <path d="M64 113 L64 126" stroke="#04413c" stroke-width="2.6" stroke-linecap="round"/>
+  <path d="M64 115 L64 124" stroke="#9ff5e6" stroke-width="1" stroke-linecap="round" opacity="0.8"/>
+
+  <!-- thorax + head -->
+  <ellipse cx="64" cy="58" rx="11" ry="13" fill="url(#jwThorax)" stroke="#04413c" stroke-width="3"/>
+  <circle cx="64" cy="36" r="10.5" fill="url(#jwThorax)" stroke="#04413c" stroke-width="3"/>
+  <ellipse cx="59" cy="53" rx="4" ry="5" fill="#d4fff8" opacity="0.35"/>
+
+  <!-- antennae -->
+  <g fill="none" stroke="#04413c" stroke-width="2.4" stroke-linecap="round">
+    <path d="M58 29 Q50 18 45 10"/>
+    <path d="M70 29 Q78 18 83 10"/>
+  </g>
+
+  <!-- large metallic eyes -->
+  <ellipse cx="56" cy="35" rx="3.4" ry="4.4" fill="#04292a" stroke="#3fbfae" stroke-width="1.1"/>
+  <ellipse cx="72" cy="35" rx="3.4" ry="4.4" fill="#04292a" stroke="#3fbfae" stroke-width="1.1"/>
+  <circle cx="57" cy="33" r="1.1" fill="#d9fffa" opacity="0.8"/>
+</svg>

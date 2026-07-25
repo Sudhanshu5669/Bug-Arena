@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- Argentine Ant — top-down, facing up. Deliberately the plainest ant in the
+       roster: uniform dull brown, no spines, no horns, no colour. Nothing about one
+       of them is remarkable, which is exactly the point of the species. The only
+       flourish is the faint pheromone trail streaming off its gaster. -->
+  <defs>
+    <radialGradient id="arGaster" cx="42%" cy="30%" r="75%">
+      <stop offset="0%" stop-color="#a89684"/>
+      <stop offset="55%" stop-color="#7a6a58"/>
+      <stop offset="100%" stop-color="#3a3128"/>
+    </radialGradient>
+    <radialGradient id="arThorax" cx="42%" cy="30%" r="80%">
+      <stop offset="0%" stop-color="#9d8b78"/>
+      <stop offset="100%" stop-color="#463b30"/>
+    </radialGradient>
+    <radialGradient id="arHead" cx="42%" cy="30%" r="80%">
+      <stop offset="0%" stop-color="#a08e7c"/>
+      <stop offset="100%" stop-color="#433930"/>
+    </radialGradient>
+  </defs>
+
+  <!-- the trail it is laying, drawn first so the body sits on top -->
+  <g stroke="#9fe8b0" stroke-linecap="round" fill="none" opacity="0.5">
+    <path d="M64 108 Q60 118 63 126" stroke-width="2.4"/>
+    <circle cx="59" cy="115" r="1.6" fill="#9fe8b0" stroke="none"/>
+    <circle cx="68" cy="120" r="1.3" fill="#9fe8b0" stroke="none"/>
+  </g>
+
+  <g fill="none" stroke="#241c14" stroke-width="3" stroke-linecap="round">
+    <g id="arLimbs">
+      <path d="M57 57 Q40 49 28 39"/>
+      <path d="M57 63 Q39 63 26 65"/>
+      <path d="M57 69 Q41 79 31 90"/>
+      <path d="M60 38 Q54 27 50 18"/>
+    </g>
+    <use href="#arLimbs" transform="matrix(-1 0 0 1 128 0)"/>
+  </g>
+
+  <g fill="none" stroke="#241c14" stroke-width="2.2" stroke-linecap="round">
+    <path d="M60 34 Q56 30 52 29"/>
+    <path d="M68 34 Q72 30 76 29"/>
+  </g>
+
+  <ellipse cx="64" cy="89" rx="12" ry="17" fill="url(#arGaster)" stroke="#241c14" stroke-width="2.8"/>
+  <ellipse cx="64" cy="62" rx="9" ry="11" fill="url(#arThorax)" stroke="#241c14" stroke-width="2.8"/>
+  <circle cx="64" cy="41" r="9.5" fill="url(#arHead)" stroke="#241c14" stroke-width="2.8"/>
+
+  <path d="M53 83 Q64 88 75 83" fill="none" stroke="#332a20" stroke-width="1.8" opacity="0.6"/>
+  <path d="M55 96 Q64 100 73 96" fill="none" stroke="#332a20" stroke-width="1.8" opacity="0.5"/>
+  <ellipse cx="59" cy="82" rx="4" ry="5.5" fill="#d8cbbc" opacity="0.3"/>
+
+  <circle cx="59" cy="41" r="2.1" fill="#1a140e"/>
+  <circle cx="69" cy="41" r="2.1" fill="#1a140e"/>
+</svg>

@@ -1,14 +1,17 @@
 # 🐛 Bug Arena — v1
 
 A sandbox simulator where two teams of insects fight in a physics-driven arena.
-This is **v1**: a clean, correct, renderer-agnostic simulation engine plus a live
-browser preview. The server/API and headless video export are **not** built yet —
-but the code is deliberately structured so they bolt on without touching the engine.
+Pick your colony from a roster of **44 species**, choose how many of each, and
+watch them fight it out.
+
+The simulation runs **in the browser**, so the whole thing deploys as a static
+site with no backend. The exact same engine also runs headless in Node, which is
+what the video pipeline uses.
 
 ```
 ┌─────────────┐  snapshots (plain data)   ┌──────────────────┐
 │   engine/   │ ─────────────────────────▶│  any renderer     │
-│  (headless) │   'start' 'snapshot' 'end'│  browser today,   │
+│ (headless)  │   'start' 'snapshot' 'end'│  browser canvas,  │
 │  matter.js  │                            │  video later      │
 └─────────────┘                            └──────────────────┘
        ▲
@@ -24,15 +27,37 @@ but the code is deliberately structured so they bolt on without touching the eng
 ```bash
 npm install
 
-# Live browser preview (dev tool): open http://localhost:3000
+# Play it: http://localhost:3000
 npm start
 
 # Headless — runs a full battle in Node with NO browser/canvas/DOM.
-# This is the shape the future API + video renderer use.
-npm run headless            # random battle
+# This is the shape the video renderer uses.
+npm run headless                           # random battle
 node examples/headless.js 12345            # fixed seed → fully reproducible
 node examples/headless.js 12345 passive    # passive mode
 ```
+
+## Deploying
+
+The engine is loaded by the browser as plain ES modules — there is no bundler and
+no transpile step. A "build" is a file copy into the layout the page's absolute
+imports expect:
+
+```bash
+npm run build     # -> dist/
+```
+
+Deploy `dist/` to any static host (Vercel, Netlify, Cloudflare Pages, GitHub
+Pages). `vercel.json` is already set up: build command `node tools/buildStatic.js`,
+output directory `dist`. The whole thing is well under a megabyte and costs
+nothing to serve, because every visitor simulates their own battle locally.
+
+**How the engine runs unmodified in both places:** `engine/engine.js` imports the
+bare specifiers `matter-js` and `events`, which Node resolves natively. The
+browser can't, so `public/index.html` declares an **import map** pointing those
+two names at small shims in `public/vendor/` (`matter-shim.js` re-exports the UMD
+build's global; `events-shim.js` is a minimal `EventEmitter`). Nothing in
+`engine/` is browser-specific, and nothing in it is Node-specific.
 
 ## Project layout
 
@@ -43,12 +68,14 @@ node examples/headless.js 12345 passive    # passive mode
 | `engine/config.js` | Default config + deep-merge. Every battle parameter is config-driven. |
 | `engine/{agent,rng,constants}.js` | Agent state, seeded PRNG, shared enums. |
 | `species/registry.js` | The factory the engine spawns from. `registerSpecies`, `getSpecies`, `getCatalog`. |
-| `species/*.js` | One file per species (24 of them): stats + data-only `visual` and `sfx` descriptors + behaviour hooks. Self-registers on import. |
+| `species/*.js` | One file per species (44 of them): stats + data-only `visual` and `sfx` descriptors + behaviour hooks. Self-registers on import. |
 | `render/rendererAbstraction.js` | `drawAgent(ctx, agent, visual)` switches on `visual.type` (shape today, sprite-ready). Pure canvas calls → works in browser **and** node-canvas. |
 | `render/canvasRenderer.js` | Browser scene composition (walls, food, health bars, status halos, FX). A pure snapshot subscriber. |
 | `render/audio.js` | The sound layer: synthesizes each species' `sfx` recipes with Web Audio. Zero audio files. Also a pure snapshot subscriber. |
-| `server/server.js` | **Dev tool only.** Runs the engine and streams snapshots to the browser over WebSocket. Not the future public API. |
-| `public/` | The preview page + client (renders state; contains no simulation logic). |
+| `server/server.js` | **Dev tool only.** A static file server matching the `dist/` URL layout. It no longer runs the simulation — the browser does. |
+| `tools/buildStatic.js` | Copies `public/ engine/ species/ render/` into `dist/` for deployment. No bundler. |
+| `public/localArena.js` | Owns a `BugArenaEngine` in the page and relays its snapshot stream. This is what replaced the WebSocket server. |
+| `public/client.js` | Roster picker + HUD + kill feed. Renders state; contains no simulation logic. |
 | `examples/headless.js` | Proof the engine runs with no browser. |
 
 ## Core design guarantees
@@ -290,14 +317,14 @@ faces east instead. Single static image per species today; the `sprite` path
 already accepts `frameWidth`/`animations` for frame-based spritesheets later with
 no engine change.
 
-## The roster — 24 species, each with a power *and* a price
+## The roster — 44 species, each with a power *and* a price
 
 Species are split into two tiers: **soldier** ants make up the squad, **champion**
 bugs lead it. Every one is built around a real trade-off — nothing is strictly
 better than anything else, and the units with the biggest powers pay the steepest
 prices for them.
 
-### Soldier tier (12)
+### Soldier tier (22)
 
 | Species | Power | Price |
 |---------|-------|-------|
@@ -313,8 +340,18 @@ prices for them.
 | **Crazy Ant** | **Formic Spray** — corrodes a whole cluster so they hit **42% weaker** | frail, and 5 damage: it can ruin a fight it can never win |
 | **Harvester Ant** | **Gorge** — every seed eaten *permanently* grows it (+30% damage, +16 HP a stack) | starts as one of the weakest ants; in a fast brawl it never gets going |
 | **Bulldog Ant** | **Killer Leap** — springs the gap onto isolated prey; best eyesight in the tier | hunts ahead of the colony and habitually arrives **alone** |
+| **Weaver Ant** | **Silk Anchor** — hauls up to 4 enemies into a pile beside it and roots them | 5 damage; it sets up a kill it cannot land itself |
+| **Amazon Ant** | **Pillage** — *permanently* moves damage and max HP from its victim to itself | starts ordinary and is capped at 6 stacks; needs a long fight to matter |
+| **Acrobat Ant** | **Gaster Flick** — 360° knockback that leaves attackers unable to swing | short range, 5 damage — it scatters a pile without thinning it |
+| **Turtle Ant** | **Door Head** — takes 24% damage and shelters every ally behind it | **cannot move at all** while braced; 4 damage, slowest ant in the game |
+| **Dracula Ant** | **Blood Feed** — true lifesteal: every bite heals it for 85% of the damage | 68 HP; the window is 4.5s on a 9s cooldown |
+| **Jack Jumper Ant** | **Erratic Bound** — takes 35% damage and moves 60% faster | evasion, not armour — focus fire still deletes it, and the window is short |
+| **Pharaoh Ant** | **Budding** — splits off a copy of itself, and every copy can bud again | 54 HP, 4 damage; each bud **costs it 22% of its current health** |
+| **Thief Ant** | **Larceny** — tears HP out of an enemy and gives it to the worst-hurt ally | 52 HP, the frailest ant here; it heals everyone except reliably itself |
+| **Argentine Ant** | **Trail Pheromone** — marks one enemy to take **50% more** from every source | does almost nothing alone; it is pure force multiplier |
+| **Zombie Ant** | **Cordyceps Bloom** — contagious rot that blocks healing and jumps one hop; blooms **again** on death | slow, 4 damage, long attack cooldown — the fungus is the whole unit |
 
-### Champion tier (12)
+### Champion tier (22)
 
 | Species | Power | Price |
 |---------|-------|-------|
@@ -330,6 +367,16 @@ prices for them.
 | **Spitting Spider** | The only true **ranged** unit — 155 reach, and **Glue Shot** all but roots what it hits | no melee game whatsoever; anything that closes the gap kills it |
 | **Black Widow** | **Necrotic Bite** — a wound that **blocks all healing**: the hard counter to sustain comps | worst body in the tier; and against a comp with no healing, the trait does nothing |
 | **Antlion** | **Sand Pit** — drags *every* nearby enemy in and roots them; the best setup tool in the game | slowest champion, worst eyesight, and it can barely capitalise on its own opening |
+| **Tarantula Hawk** | **Paralytic Sting** — the only *total* lockdown: no moving, no attacking, +45% damage taken | 132 HP, single target only, and the longest cooldown in the game (12s) |
+| **Giant Water Bug** | **Liquefy** — pins one target under heavy DoT and drinks the damage back as healing | ponderous on land; a squad simply walks around it |
+| **Vinegaroon** | **Acetic Mist** — 360° field leaving everything caught **45% weaker** | 6 damage — it blunts a squad it has no way to finish |
+| **Goliath Beetle** | **Ground Slam** — the heaviest AoE here: knockback **and** stun, with falloff | slowest unit in the game and nearly blind; it must be escorted into range |
+| **Dragonfly** | **Aerial Strafe** — three separate charges through three separate targets | the most fragile champion (116 HP); every pass leaves it deeper in the enemy line |
+| **Jumping Spider** | **Stalk & Pounce** — the single biggest hit in the game, worse against wounded prey | the pounce is **delayed**: it spends >1s unable to attack, and kill it first and you get nothing |
+| **Velvet Worm** | **Slime Net** — roots an entire cone at once, then leaves them slowed | 7 damage; it is a setup tool with no follow-through of its own |
+| **Jewel Wasp** | **Zombify** — 6 seconds of *no attacking*, the longest disable in the game | it takes nothing else away — the victim keeps full HP and speed; 126 HP on a 13s cooldown |
+| **Devil's Coach Horse** | **Rear & Reek** — the only ability that makes enemies **leave**: repel, slow, and weaken | it wins space, not fights; nothing it does actually kills anything |
+| **Camel Spider** | **Shearing Frenzy** — attacks ~3× as fast for 4 seconds | each bite is 22% weaker, and the window is wasted the moment it loses contact |
 
 > **Balance note.** Tuned with a full round-robin per tier (12×12 each, ~2k
 > battles), plus mixed-squad tests and a 300-battle soak. Where things landed:
@@ -347,6 +394,30 @@ prices for them.
 >   forage-paced fight to grow — 20-27 in passive mode versus 7-41 in aggressive.
 >   **Black Widow** is a counter-pick: 38-2 against a healer comp, where other
 >   champions manage 30-8.
+
+> **Balance note — the 20 species added in the roster expansion.** Measured
+> against a 6-species panel drawn from the original (already-tuned) roster, both
+> sides played, 5 seeds, mirrored counts: 1,200 battles per pass. Every one of the
+> 20 now lands between **27% and 75%**, with no species above 80% or below 20%.
+>
+> The first pass was not close, and the failures were informative:
+>
+> - **Amazon Ant and Dracula Ant both hit 83%.** Two-way effects (steal, lifesteal)
+>   compound much faster than one-way buffs of the same nominal size, because they
+>   move the gap twice per proc. Both were cut roughly 40%.
+> - **Weaver Ant won 0%, Thief Ant 2%, Argentine Ant 3%, Velvet Worm 7%.** All four
+>   are force-multipliers, and a same-species duel gives them nothing to multiply.
+>   That's expected for support (see the Leafcutter note above) — but 0% means the
+>   unit is doing *nothing*, not that it's specialised. Each got enough of its own
+>   damage back to matter, without touching what makes it a support unit.
+> - **Pharaoh Ant won 5%** because budding was a net loss of colony health: it paid
+>   22% of current HP for a 60%-health copy. The self-replicator has to come out
+>   ahead on the trade or the whole species is a downgrade button.
+>
+> Caveat worth stating: this panel measures *isolated* single-species matchups. It
+> catches units that are broken or inert, but it cannot score how well a support
+> unit lifts a mixed squad — that still needs the kind of mixed-comp testing the
+> original roster got.
 
 ## The ability system (the part built to scale)
 

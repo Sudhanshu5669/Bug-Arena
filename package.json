@@ -7,6 +7,7 @@
   "scripts": {
     "start": "node server/server.js",
     "dev": "node server/server.js",
+    "build": "node tools/buildStatic.js",
     "headless": "node examples/headless.js",
     "sprites:svg": "node tools/rasterizeSvgs.js",
     "sprites:pixel": "node tools/genPlaceholderSprites.js"
@@ -24,7 +25,6 @@
   "license": "MIT",
   "dependencies": {
     "express": "^4.19.2",
-    "matter-js": "^0.20.0",
-    "ws": "^8.18.0"
+    "matter-js": "^0.20.0"
   }
 }

@@ -1,9 +1,10 @@
-// Browser client. Connects to the dev server over WebSocket, feeds snapshots to
-// the CanvasRenderer, and updates the HUD (score, rosters, kill feed). It has no
-// simulation logic — it only renders state the engine produces.
+// Browser client. Drives an in-page LocalArena, feeds its snapshots to the
+// CanvasRenderer, and updates the HUD (score, rosters, kill feed). It contains no
+// simulation logic itself — it only renders state the engine produces.
 
 import { CanvasRenderer, FORMATS } from '/render/canvasRenderer.js';
 import { ArenaAudio, ARENA_SFX } from '/render/audio.js';
+import { LocalArena } from '/localArena.js';
 
 const canvas = document.getElementById('arena');
 const $ = (id) => document.getElementById(id);
@@ -25,22 +26,14 @@ const audio = new ArenaAudio({ volume: 0.6 });
 let customRoster = { A: {}, B: {} }; // { A: { speciesId: count }, B: {...} }
 let builderSeeded = false;
 
-// --- WebSocket ---------------------------------------------------------------
+// --- Simulation driver -------------------------------------------------------
 
-let ws;
-function connect() {
-  ws = new WebSocket(`ws://${location.host}`);
-  ws.onmessage = (e) => handleMessage(JSON.parse(e.data));
-  ws.onclose = () => {
-    setStatus('disconnected — retrying…');
-    setTimeout(connect, 1000);
-  };
-  ws.onopen = () => setStatus('running');
-}
-connect();
+// The battle runs in this tab. `send()` keeps the old socket-style command shape
+// so every call site below is unchanged from the networked version.
+const arena = new LocalArena(handleMessage, { mode: currentMode });
 
 function send(obj) {
-  if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(obj));
+  arena.send(obj);
 }
 
 function handleMessage(msg) {
@@ -188,19 +181,23 @@ function renderRoster(team, agents) {
   const counts = {};
   for (const a of agents) counts[a.speciesId] = (counts[a.speciesId] || 0) + 1;
   const el = $(`roster-${team}`);
-  const ids = Object.keys(catalog);
-  el.innerHTML = ids
+
+  // Only species actually on the field. Listing the whole catalogue greyed-out
+  // was readable at 24 species and is not at 44 — and a fight only ever fields a
+  // handful of them anyway.
+  const rows = Object.keys(counts)
+    .sort((x, y) => counts[y] - counts[x])
     .map((id) => {
-      const n = counts[id] || 0;
       const color = catalog[id]?.visual?.color || '#888';
       const name = catalog[id]?.name || id;
-      const dim = n === 0 ? 'opacity:0.35;' : '';
-      return `<div class="sp-row" style="${dim}">
+      return `<div class="sp-row">
         <span class="dot" style="background:${color}"></span>
-        <span>${name}</span><span class="cnt">${n}</span>
+        <span>${name}</span><span class="cnt">${counts[id]}</span>
       </div>`;
     })
     .join('');
+
+  el.innerHTML = rows || '<div class="sp-row" style="opacity:0.45"><span>wiped out</span></div>';
 }
 
 // Ability procs: the engine ships a ready-made, readable `text` — show it as-is
@@ -322,6 +319,32 @@ function verbFor(cause) {
       return 'rotted';
     case 'pit':
       return 'buried';
+    // --- causes introduced by the expanded roster ---------------------------
+    // NOTE: damage-over-time is credited with the STATUS TYPE as its cause (see
+    // engine `_updateStatuses`), so 'cordyceps' / 'digested' / 'blinded' are the
+    // status names, not ability names.
+    case 'silk':
+      return 'snared';
+    case 'pillage':
+      return 'plundered';
+    case 'flick':
+      return 'flung off';
+    case 'feed':
+      return 'bled';
+    case 'larceny':
+      return 'robbed';
+    case 'cordyceps':
+      return 'infested';
+    case 'liquefy':
+      return 'liquefied';
+    case 'digested':
+      return 'digested';
+    case 'blinded':
+      return 'seared';
+    case 'slime':
+      return 'gummed up';
+    case 'reek':
+      return 'sickened';
     // NOTE: no 'backblast' case — that death is credited to no killer on purpose,
     // so it takes the killer-less branch above ("… died (backblast)").
     default:
@@ -361,11 +384,8 @@ function hideOverlay() {
 
 // --- Controls ----------------------------------------------------------------
 
-// "New Battle" goes back to a RANDOM tier-generated fight — explicitly clear any
-// custom roster so the server stops replaying the built matchup.
-$('btn-new').addEventListener('click', () =>
-  send({ cmd: 'restart', config: { mode: currentMode, seed: null, teams: { custom: null } } })
-);
+// NOTE: "New random battle" lives in the roster panel now and is wired up in
+// setupBuilderControls() — registering it here too would fire two restarts.
 $('mode-agg').addEventListener('click', () => setMode('aggressive'));
 $('mode-pass').addEventListener('click', () => setMode('passive'));
 
@@ -467,69 +487,250 @@ function setupSoundControls() {
   syncHint();
 }
 
-// --- Fight builder ----------------------------------------------------------
+// --- Roster picker ----------------------------------------------------------
 
-// A sample matchup so the builder is usable the moment it loads.
+const MAX_PER_SPECIES = 50; // matches the engine's own per-entry clamp
+let rosterFilter = 'all'; // 'all' | 'soldier' | 'champion'
+let rosterQuery = '';
+
+// A sample matchup so the roster is a playable fight the moment it loads.
 function seedDefaultRoster() {
   const set = (team, id, n) => {
     if (catalog[id]) customRoster[team][id] = n;
   };
-  set('A', 'fireAnt', 6);
+  set('A', 'fireAnt', 8);
   set('A', 'mantis', 1);
-  set('B', 'bulletAnt', 6);
+  set('B', 'bulletAnt', 8);
   set('B', 'scorpion', 1);
 }
 
-// Draw a stepper row per species for each team, reflecting current counts.
+/** Sprite URL for a species, or null when it only has a shape descriptor. */
+function thumbUrl(sp) {
+  const v = sp?.visual;
+  if (!v || v.type !== 'sprite') return null;
+  const key = v.sprite || v.spriteSheet;
+  if (!key) return null;
+  return v.spriteExt === 'svg' ? `/assets/sprites/src/${key}.svg` : `/assets/sprites/${key}.png`;
+}
+
+// Ants first, then bugs, alphabetically within each tier — so the grid reads as
+// two clear blocks rather than registration order.
+function sortedSpeciesIds() {
+  return Object.keys(catalog).sort((x, y) => {
+    const a = catalog[x];
+    const b = catalog[y];
+    if (a.tier !== b.tier) return a.tier === 'soldier' ? -1 : 1;
+    return a.name.localeCompare(b.name);
+  });
+}
+
+let builderRendered = false;
+
+// Build the 44 cards ONCE. `onInit` fires on every restart (a battle auto-starts
+// every few seconds), and re-rendering there would re-request every sprite and
+// visibly flash the grid — so subsequent calls only re-sync the counts.
 function renderBuilder() {
-  const ids = Object.keys(catalog);
-  for (const team of ['A', 'B']) {
-    const el = $(`build-${team.toLowerCase()}`);
-    if (!el) continue;
-    el.innerHTML = ids
-      .map((id) => {
-        const n = customRoster[team][id] || 0;
-        const color = catalog[id]?.visual?.color || '#888';
-        const name = catalog[id]?.name || id;
-        return `<div class="build-row ${n > 0 ? 'has' : ''}" data-sp="${id}">
-          <span class="dot" style="background:${color}"></span>
-          <span class="bname">${name}</span>
-          <span class="stepper">
-            <button class="dec" type="button" aria-label="fewer">−</button>
-            <span class="bcount">${n}</span>
-            <button class="inc" type="button" aria-label="more">+</button>
+  const grid = $('roster-grid');
+  if (!grid) return;
+  if (builderRendered) {
+    syncAllCards();
+    return;
+  }
+  builderRendered = true;
+
+  grid.innerHTML = sortedSpeciesIds()
+    .map((id) => {
+      const sp = catalog[id];
+      const url = thumbUrl(sp);
+      const s = sp.stats || {};
+      const tierLabel = sp.tier === 'champion' ? 'Bug' : 'Ant';
+      const ability = sp.ability
+        ? `<b>${escapeHtml(sp.ability.name)}</b>`
+        : '<i>no signature ability</i>';
+
+      // The thumbnail is an <img>, not inline SVG, on purpose: each file keeps its
+      // own gradient ids that way, so 44 sprites can't collide over shared ids.
+      const art = url
+        ? `<img class="thumb" src="${url}" alt="" loading="lazy" />`
+        : `<div class="thumb" style="display:grid;place-items:center">
+             <span style="width:26px;height:26px;border-radius:50%;background:${sp.visual?.color || '#888'}"></span>
+           </div>`;
+
+      return `<div class="sp-card" data-sp="${id}" data-tier="${sp.tier}" data-name="${escapeHtml(
+        sp.name.toLowerCase()
+      )}">
+        ${art}
+        <span class="tier ${sp.tier}">${tierLabel}</span>
+        <div class="nm">${escapeHtml(sp.name)}</div>
+        <div class="ab">${ability}</div>
+        <div class="stats">
+          <span title="health">♥<b>${Math.round(s.maxHealth)}</b></span>
+          <span title="damage">⚔<b>${s.damage}</b></span>
+          <span title="speed">»<b>${s.speed}</b></span>
+        </div>
+        <div class="picker">
+          <span class="pick a"><span class="lbl">A</span>
+            <button class="dec" type="button" data-team="A" aria-label="fewer on A">−</button>
+            <span class="n" data-team="A">0</span>
+            <button class="inc" type="button" data-team="A" aria-label="more on A">+</button>
           </span>
-        </div>`;
-      })
-      .join('');
+          <span class="pick b"><span class="lbl">B</span>
+            <button class="dec" type="button" data-team="B" aria-label="fewer on B">−</button>
+            <span class="n" data-team="B">0</span>
+            <button class="inc" type="button" data-team="B" aria-label="more on B">+</button>
+          </span>
+        </div>
+      </div>`;
+    })
+    .join('');
+
+  syncAllCards();
+  applyFilter();
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+}
+
+/** Push the stored counts for one species onto its card. */
+function syncCard(card) {
+  const id = card.dataset.sp;
+  let any = false;
+  for (const team of ['A', 'B']) {
+    const n = customRoster[team][id] || 0;
+    card.querySelector(`.n[data-team="${team}"]`).textContent = n;
+    card.querySelector(`.pick.${team.toLowerCase()}`).classList.toggle('on', n > 0);
+    card.classList.toggle(`in-${team.toLowerCase()}`, n > 0);
+    any = any || n > 0;
+  }
+  return any;
+}
+
+function syncAllCards() {
+  for (const card of document.querySelectorAll('.sp-card')) syncCard(card);
+  renderArmies();
+}
+
+function setCount(team, id, n) {
+  const next = Math.max(0, Math.min(MAX_PER_SPECIES, n));
+  if (next === 0) delete customRoster[team][id];
+  else customRoster[team][id] = next;
+  const card = document.querySelector(`.sp-card[data-sp="${id}"]`);
+  if (card) syncCard(card);
+  renderArmies();
+}
+
+/** The two army summaries above the grid. */
+function renderArmies() {
+  for (const team of ['A', 'B']) {
+    const entries = rosterList(team);
+    const units = entries.reduce((n, e) => n + e.count, 0);
+    const bugs = entries
+      .filter((e) => catalog[e.species]?.tier === 'champion')
+      .reduce((n, e) => n + e.count, 0);
+
+    $(`tally-${team.toLowerCase()}`).innerHTML =
+      `<b>${units}</b> unit${units === 1 ? '' : 's'}` +
+      (bugs ? ` · <b>${bugs}</b> bug${bugs === 1 ? '' : 's'}` : '');
+
+    const picks = $(`picks-${team.toLowerCase()}`);
+    if (!entries.length) {
+      picks.className = 'picks empty';
+      picks.textContent = 'nothing picked';
+    } else {
+      picks.className = 'picks';
+      picks.textContent = entries
+        .map((e) => `${catalog[e.species]?.name || e.species} ×${e.count}`)
+        .join(', ');
+    }
   }
 }
 
-// One delegated handler per team list (the containers are static, so this is
-// attached once and survives every renderBuilder re-draw).
+/** Hide cards that fail the current tier filter or search text. */
+function applyFilter() {
+  const q = rosterQuery.trim().toLowerCase();
+  for (const card of document.querySelectorAll('.sp-card')) {
+    const tierOk = rosterFilter === 'all' || card.dataset.tier === rosterFilter;
+    const textOk = !q || card.dataset.name.includes(q);
+    card.classList.toggle('hidden', !(tierOk && textOk));
+  }
+}
+
 function setupBuilderControls() {
-  for (const team of ['A', 'B']) {
-    const list = $(`build-${team.toLowerCase()}`);
-    if (!list) continue;
-    list.addEventListener('click', (e) => {
-      const btn = e.target.closest('button');
-      const row = e.target.closest('.build-row');
-      if (!btn || !row) return;
-      const sp = row.dataset.sp;
-      const cur = customRoster[team][sp] || 0;
-      const next = btn.classList.contains('inc') ? Math.min(50, cur + 1) : Math.max(0, cur - 1);
-      customRoster[team][sp] = next;
-      row.querySelector('.bcount').textContent = next;
-      row.classList.toggle('has', next > 0);
+  // One delegated handler for all 44 cards — the grid is rebuilt on init, so
+  // per-button listeners would leak on every restart.
+  $('roster-grid')?.addEventListener('click', (e) => {
+    const btn = e.target.closest('button');
+    const card = e.target.closest('.sp-card');
+    if (!btn || !card) return;
+    const team = btn.dataset.team;
+    const id = card.dataset.sp;
+    const cur = customRoster[team][id] || 0;
+    setCount(team, id, btn.classList.contains('inc') ? cur + 1 : cur - 1);
+  });
+
+  const filters = { 'filt-all': 'all', 'filt-soldier': 'soldier', 'filt-champion': 'champion' };
+  for (const [btnId, value] of Object.entries(filters)) {
+    $(btnId)?.addEventListener('click', () => {
+      rosterFilter = value;
+      for (const other of Object.keys(filters)) $(other)?.classList.toggle('active', other === btnId);
+      applyFilter();
     });
   }
 
-  $('btn-simulate').addEventListener('click', simulateCustomFight);
-  $('btn-clear-build').addEventListener('click', () => {
+  $('roster-search')?.addEventListener('input', (e) => {
+    rosterQuery = e.target.value;
+    applyFilter();
+  });
+
+  $('btn-simulate')?.addEventListener('click', simulateCustomFight);
+
+  $('btn-clear-build')?.addEventListener('click', () => {
     customRoster = { A: {}, B: {} };
-    renderBuilder();
+    syncAllCards();
     $('build-hint').textContent = '';
   });
+
+  // Copy A's colony onto B — the fastest way to set up a controlled mirror match
+  // where the only variable is the seed.
+  $('btn-mirror')?.addEventListener('click', () => {
+    customRoster.B = { ...customRoster.A };
+    syncAllCards();
+  });
+
+  $('btn-random-army')?.addEventListener('click', rollRandomArmies);
+
+  // "New random battle" hands the fight back to the engine's own tier-driven
+  // matchmaking: `custom: null` is what tells it to stop replaying your roster.
+  $('btn-new')?.addEventListener('click', () =>
+    send({ cmd: 'restart', config: { mode: currentMode, seed: null, teams: { custom: null } } })
+  );
+}
+
+/** Give each side one random ant species in numbers plus one random bug. */
+function rollRandomArmies() {
+  const ids = sortedSpeciesIds();
+  const ants = ids.filter((id) => catalog[id].tier === 'soldier');
+  const bugs = ids.filter((id) => catalog[id].tier === 'champion');
+  if (!ants.length || !bugs.length) return;
+
+  const pick = (arr, exclude) => {
+    const pool = arr.filter((x) => x !== exclude);
+    return pool[Math.floor(Math.random() * pool.length)] ?? arr[0];
+  };
+
+  customRoster = { A: {}, B: {} };
+  const antA = pick(ants);
+  const antB = pick(ants, antA);
+  const bugA = pick(bugs);
+  const bugB = pick(bugs, bugA);
+  customRoster.A[antA] = 6 + Math.floor(Math.random() * 7);
+  customRoster.B[antB] = 6 + Math.floor(Math.random() * 7);
+  customRoster.A[bugA] = 1;
+  customRoster.B[bugB] = 1;
+
+  syncAllCards();
+  $('build-hint').textContent = '';
 }
 
 function rosterList(team) {
@@ -562,3 +763,8 @@ function simulateCustomFight() {
 setupBuilderControls();
 setupSoundControls();
 setupFramingControls();
+
+// Kick off the first battle. (The dev server used to do this on `listen`; with the
+// simulation in-page, the client owns it.)
+setStatus('running');
+arena.start();

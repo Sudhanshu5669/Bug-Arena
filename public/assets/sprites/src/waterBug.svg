@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- Giant Water Bug — top-down, facing up. A broad flattened oval shield of a
+       body, the raptorial forelegs folded forward like a mantis's, flattened
+       oar-like swimming legs behind, and the short stabbing rostrum it injects
+       digestive enzymes through. -->
+  <defs>
+    <radialGradient id="wbBody" cx="40%" cy="26%" r="80%">
+      <stop offset="0%" stop-color="#a89272"/>
+      <stop offset="50%" stop-color="#6b5b3e"/>
+      <stop offset="100%" stop-color="#2e2617"/>
+    </radialGradient>
+    <radialGradient id="wbHead" cx="42%" cy="30%" r="80%">
+      <stop offset="0%" stop-color="#9c8664"/>
+      <stop offset="100%" stop-color="#3b311d"/>
+    </radialGradient>
+  </defs>
+
+  <!-- raptorial forelegs: thick, folded, hooked inward to grip -->
+  <g fill="none" stroke="#241d10" stroke-width="6" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M50 48 L30 30 L38 12"/>
+    <path d="M78 48 L98 30 L90 12"/>
+  </g>
+  <g fill="none" stroke="#8a7550" stroke-width="2" stroke-linecap="round">
+    <path d="M50 48 L30 30 L38 12"/>
+    <path d="M78 48 L98 30 L90 12"/>
+  </g>
+
+  <!-- flattened swimming legs, fringed with hairs -->
+  <g fill="none" stroke="#241d10" stroke-width="4.5" stroke-linecap="round">
+    <g id="wbSwim">
+      <path d="M46 72 Q26 78 12 74"/>
+      <path d="M48 88 Q30 100 20 114"/>
+    </g>
+    <use href="#wbSwim" transform="matrix(-1 0 0 1 128 0)"/>
+  </g>
+  <g fill="none" stroke="#241d10" stroke-width="1.4" opacity="0.65">
+    <path d="M20 70 L18 64 M26 71 L24 65 M32 73 L30 67"/>
+    <path d="M108 70 L110 64 M102 71 L104 65 M96 73 L98 67"/>
+  </g>
+
+  <!-- the broad shield body -->
+  <ellipse cx="64" cy="76" rx="27" ry="34" fill="url(#wbBody)" stroke="#241d10" stroke-width="3.4"/>
+  <!-- wing-case seam down the midline -->
+  <path d="M64 46 L64 108" stroke="#33291a" stroke-width="2.2" opacity="0.75"/>
+  <path d="M46 60 Q64 66 82 60" fill="none" stroke="#33291a" stroke-width="1.8" opacity="0.5"/>
+  <ellipse cx="52" cy="60" rx="8" ry="11" fill="#d6c19a" opacity="0.22"/>
+
+  <!-- head + short stabbing rostrum -->
+  <ellipse cx="64" cy="42" rx="13" ry="10" fill="url(#wbHead)" stroke="#241d10" stroke-width="3"/>
+  <path d="M64 34 L64 22" stroke="#241d10" stroke-width="4.5" stroke-linecap="round"/>
+  <path d="M64 34 L64 24" stroke="#c9b48c" stroke-width="1.6" stroke-linecap="round" opacity="0.7"/>
+
+  <!-- the two short breathing appendages at the tail tip -->
+  <g stroke="#241d10" stroke-width="3.4" stroke-linecap="round">
+    <path d="M59 108 L57 120"/>
+    <path d="M69 108 L71 120"/>
+  </g>
+
+  <!-- large flat eyes set wide -->
+  <ellipse cx="54" cy="40" rx="3.6" ry="3.2" fill="#14100a"/>
+  <ellipse cx="74" cy="40" rx="3.6" ry="3.2" fill="#14100a"/>
+  <circle cx="55" cy="39" r="1.1" fill="#e0d2b4" opacity="0.75"/>
+</svg>

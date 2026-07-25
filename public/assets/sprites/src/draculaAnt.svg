@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- Dracula Ant — top-down, facing up. Dark wine-red, narrow, with long straight
+       piercing mandibles and a translucent gaster you can see the meal through. -->
+  <defs>
+    <radialGradient id="drGaster" cx="42%" cy="30%" r="75%">
+      <stop offset="0%" stop-color="#d4577a"/>
+      <stop offset="55%" stop-color="#8e2f4a"/>
+      <stop offset="100%" stop-color="#3f0d1e"/>
+    </radialGradient>
+    <radialGradient id="drThorax" cx="42%" cy="30%" r="80%">
+      <stop offset="0%" stop-color="#c04a6a"/>
+      <stop offset="100%" stop-color="#5a1a2d"/>
+    </radialGradient>
+    <radialGradient id="drHead" cx="42%" cy="30%" r="80%">
+      <stop offset="0%" stop-color="#c85070"/>
+      <stop offset="100%" stop-color="#551829"/>
+    </radialGradient>
+  </defs>
+
+  <g fill="none" stroke="#2b0a13" stroke-width="3.3" stroke-linecap="round">
+    <g id="drLimbs">
+      <path d="M56 55 Q37 46 24 35"/>
+      <path d="M56 62 Q35 61 21 63"/>
+      <path d="M56 69 Q38 79 27 92"/>
+      <path d="M60 32 Q53 20 48 10"/>
+    </g>
+    <use href="#drLimbs" transform="matrix(-1 0 0 1 128 0)"/>
+  </g>
+
+  <!-- long straight piercing mandibles — for opening a hole, not for cutting -->
+  <g fill="none" stroke="#3f0d1e" stroke-width="3.2" stroke-linecap="round">
+    <path d="M58 27 L51 9"/>
+    <path d="M70 27 L77 9"/>
+  </g>
+
+  <ellipse cx="64" cy="92" rx="14" ry="20" fill="url(#drGaster)" stroke="#2b0a13" stroke-width="3"/>
+  <ellipse cx="64" cy="61" rx="10" ry="13" fill="url(#drThorax)" stroke="#2b0a13" stroke-width="3"/>
+  <circle cx="64" cy="37" r="10.5" fill="url(#drHead)" stroke="#2b0a13" stroke-width="3"/>
+
+  <!-- the meal, showing through the crop -->
+  <ellipse cx="64" cy="94" rx="7" ry="10" fill="#ff2f5e" opacity="0.45"/>
+  <ellipse cx="64" cy="94" rx="4" ry="6" fill="#ff7a9a" opacity="0.4"/>
+  <path d="M51 84 Q64 90 77 84" fill="none" stroke="#5c1428" stroke-width="2" opacity="0.6"/>
+  <path d="M53 101 Q64 106 75 101" fill="none" stroke="#5c1428" stroke-width="2" opacity="0.5"/>
+
+  <circle cx="58" cy="37" r="2.3" fill="#f2b8c6"/>
+  <circle cx="70" cy="37" r="2.3" fill="#f2b8c6"/>
+  <circle cx="58" cy="37" r="1.1" fill="#5a0f22"/>
+  <circle cx="70" cy="37" r="1.1" fill="#5a0f22"/>
+</svg>

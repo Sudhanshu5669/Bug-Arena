@@ -1,0 +1,83 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- Velvet Worm — top-down, facing up. A soft segmented tube with many stubby
+       unjointed lobopod legs down both sides, short antennae, and the pair of oral
+       papillae either side of the head that fire the adhesive slime. -->
+  <defs>
+    <linearGradient id="vwBody" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#2b5a66"/>
+      <stop offset="40%" stop-color="#57a0b0"/>
+      <stop offset="70%" stop-color="#3f7d8c"/>
+      <stop offset="100%" stop-color="#12333b"/>
+    </linearGradient>
+    <radialGradient id="vwHead" cx="40%" cy="30%" r="80%">
+      <stop offset="0%" stop-color="#69b3c2"/>
+      <stop offset="100%" stop-color="#173d47"/>
+    </radialGradient>
+    <radialGradient id="vwSlime" cx="40%" cy="30%" r="80%">
+      <stop offset="0%" stop-color="#e6ffff"/>
+      <stop offset="100%" stop-color="#8fd6e0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- stubby conical legs, paired down the whole body -->
+  <g fill="none" stroke="#122c33" stroke-width="5" stroke-linecap="round">
+    <g id="vwLegs">
+      <path d="M50 48 L36 46"/>
+      <path d="M49 62 L34 61"/>
+      <path d="M49 76 L34 77"/>
+      <path d="M50 90 L36 93"/>
+      <path d="M52 103 L40 108"/>
+    </g>
+    <use href="#vwLegs" transform="matrix(-1 0 0 1 128 0)"/>
+  </g>
+  <!-- tiny claws on each foot -->
+  <g stroke="#0c2027" stroke-width="1.8" stroke-linecap="round">
+    <path d="M36 46 L32 43 M34 61 L30 59 M34 77 L30 79 M36 93 L32 96"/>
+    <path d="M92 46 L96 43 M94 61 L98 59 M94 77 L98 79 M92 93 L96 96"/>
+  </g>
+
+  <!-- the soft body: a rounded tube, widest in the middle -->
+  <path d="M64 26 Q46 30 44 56 Q42 84 50 106 Q57 120 64 120 Q71 120 78 106 Q86 84 84 56 Q82 30 64 26 Z"
+        fill="url(#vwBody)" stroke="#122c33" stroke-width="3.2"/>
+
+  <!-- annulations: the fine rings that give it the velvet texture -->
+  <g fill="none" stroke="#123840" stroke-width="1.6" opacity="0.65">
+    <path d="M47 42 Q64 47 81 42"/>
+    <path d="M45 54 Q64 59 83 54"/>
+    <path d="M44 66 Q64 71 84 66"/>
+    <path d="M45 78 Q64 83 83 78"/>
+    <path d="M48 90 Q64 95 80 90"/>
+    <path d="M53 102 Q64 106 75 102"/>
+  </g>
+  <ellipse cx="55" cy="58" rx="5" ry="16" fill="#bfeaf2" opacity="0.16"/>
+
+  <!-- head -->
+  <ellipse cx="64" cy="30" rx="13" ry="11" fill="url(#vwHead)" stroke="#122c33" stroke-width="3"/>
+
+  <!-- antennae -->
+  <g fill="none" stroke="#122c33" stroke-width="3" stroke-linecap="round">
+    <path d="M57 23 Q50 12 46 4"/>
+    <path d="M71 23 Q78 12 82 4"/>
+  </g>
+
+  <!-- the slime papillae, mid-shot: two jets crossing in a zig-zag -->
+  <g stroke="#122c33" stroke-width="3.6" stroke-linecap="round">
+    <path d="M52 26 L44 18"/>
+    <path d="M76 26 L84 18"/>
+  </g>
+  <g fill="none" stroke="url(#vwSlime)" stroke-width="2.6" stroke-linecap="round" opacity="0.85">
+    <path d="M44 18 Q54 12 48 4"/>
+    <path d="M84 18 Q74 12 80 4"/>
+  </g>
+  <g fill="#e6ffff" opacity="0.7">
+    <circle cx="48" cy="4" r="2.2"/>
+    <circle cx="80" cy="4" r="2.2"/>
+    <circle cx="53" cy="9" r="1.4"/>
+    <circle cx="75" cy="9" r="1.4"/>
+  </g>
+
+  <!-- simple eyes at the antenna bases -->
+  <circle cx="57" cy="27" r="2.2" fill="#08171b"/>
+  <circle cx="71" cy="27" r="2.2" fill="#08171b"/>
+  <circle cx="57.6" cy="26.3" r="0.8" fill="#cdf2f8" opacity="0.8"/>
+</svg>
