@@ -35,6 +35,17 @@ export const isPersistent = backend === (typeof window !== 'undefined' ? window.
 const EMPTY = Object.freeze({
   version: 1,
   run: null, // the in-progress run, or null
+  // Campaign progression + the ownership ledger the whole game reads from.
+  // See game/progress.js for the shape; kept as a plain blob here so save.js
+  // stays a storage concern and never a rules one.
+  campaign: {
+    coins: 0,
+    cleared: {},
+    bought: [],
+    granted: [],
+    totalKills: 0,
+    battlesWon: 0,
+  },
   meta: {
     unlocked: [], // species ids unlocked beyond the starter pool
     bestDepth: 0,
@@ -57,7 +68,15 @@ export function load() {
     if (!parsed || parsed.version !== EMPTY.version) return clone(EMPTY);
     // Merge onto the empty shape so a save written by an older build that lacked
     // a field still loads instead of producing undefined-shaped state downstream.
-    return { ...clone(EMPTY), ...parsed, meta: { ...EMPTY.meta, ...(parsed.meta ?? {}) } };
+    // The nested blobs are merged key-by-key for the same reason: a save from
+    // before the campaign existed has no `campaign` at all, and one from before
+    // a field was added must not leave that field undefined.
+    return {
+      ...clone(EMPTY),
+      ...parsed,
+      meta: { ...EMPTY.meta, ...(parsed.meta ?? {}) },
+      campaign: { ...clone(EMPTY.campaign), ...(parsed.campaign ?? {}) },
+    };
   } catch (err) {
     console.warn('[save] could not read save; starting fresh.', err);
     return clone(EMPTY);

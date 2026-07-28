@@ -5,6 +5,22 @@
 import { CanvasRenderer, FORMATS } from './render/canvasRenderer.js';
 import { ArenaAudio, ARENA_SFX } from './render/audio.js';
 import { LocalArena } from './localArena.js';
+import { getCatalog } from './species/registry.js';
+import * as store from './game/save.js';
+import { STARTER_SPECIES } from './game/levels.js';
+
+/**
+ * What the sandbox is allowed to field.
+ *
+ * The campaign is the only place species are acquired, and that rule holds here
+ * too — the sandbox is the reward for playing it, not a way around it. Read
+ * straight from the save rather than through Progress: this page does not own a
+ * catalog or a level list, and all it needs is the set of ids.
+ */
+const ACQUIRED = (() => {
+  const c = store.load().campaign ?? {};
+  return new Set([...STARTER_SPECIES, ...(c.granted ?? []), ...(c.bought ?? [])]);
+})();
 
 const canvas = document.getElementById('arena');
 const $ = (id) => document.getElementById(id);
@@ -30,6 +46,31 @@ let builderSeeded = false;
 
 // The battle runs in this tab. `send()` keeps the old socket-style command shape
 // so every call site below is unchanged from the networked version.
+/**
+ * Restrict the engine's RANDOM matchups to acquired species too.
+ *
+ * The fight builder covers the case where the player picks; this covers the case
+ * where they don't — including the very first battle, which starts before any
+ * `init` message has arrived. That is why the tiers come from the REGISTRY here
+ * rather than from the init catalog: at `arena.start()` the catalog is still
+ * empty, and a pool derived from it would silently mean "all 44 species".
+ *
+ * Champions are handled by count rather than by an empty pool because the engine
+ * (correctly) refuses to resolve a tier with nothing in it — a player who owns no
+ * bugs yet gets ant-only battles, not a crash.
+ */
+function acquiredPools() {
+  const tierOf = new Map(getCatalog().map((s) => [s.id, s.tier]));
+  const owned = [...ACQUIRED].filter((id) => tierOf.has(id));
+  const soldiers = owned.filter((id) => tierOf.get(id) !== 'champion');
+  const champions = owned.filter((id) => tierOf.get(id) === 'champion');
+  return {
+    soldierPool: soldiers.length ? soldiers : null,
+    championPool: champions.length ? champions : null,
+    champions: champions.length ? 1 : 0,
+  };
+}
+
 const arena = new LocalArena(handleMessage, { mode: currentMode });
 
 function send(obj) {
@@ -215,7 +256,9 @@ function renderRoster(team, agents) {
 // Ability procs: the engine ships a ready-made, readable `text` — show it as-is
 // (this is the same string a future narration/captioning layer will read).
 function pushAbilityFeed(ev) {
-  console.log(`[ability] ${ev.text}`);
+  // The on-screen event feed IS the readout — no console mirror. A 20-ant melee
+  // procs several abilities a second, and a shipped build should not be writing
+  // a line per proc into the player's console for the length of every battle.
   const feed = $('feed');
   const line = document.createElement('div');
   line.className = 'line';
@@ -507,13 +550,26 @@ let rosterQuery = '';
 
 // A sample matchup so the roster is a playable fight the moment it loads.
 function seedDefaultRoster() {
+  // Only ever seed with species the player has actually acquired — a default
+  // matchup featuring a Blade Mantis they have never earned would be the one
+  // place the ownership rule leaks.
   const set = (team, id, n) => {
-    if (catalog[id]) customRoster[team][id] = n;
+    if (catalog[id] && ACQUIRED.has(id)) customRoster[team][id] = n;
   };
   set('A', 'fireAnt', 8);
   set('A', 'mantis', 1);
   set('B', 'bulletAnt', 8);
   set('B', 'scorpion', 1);
+
+  // Nothing landed (a brand-new save owns two ants and neither of those bugs) —
+  // fall back to a straight mirror of whatever IS available, so the sandbox
+  // still opens onto a fight rather than an empty arena.
+  const empty = !Object.keys(customRoster.A).length && !Object.keys(customRoster.B).length;
+  if (empty) {
+    const ants = sortedSpeciesIds().filter((id) => catalog[id].tier === 'soldier');
+    if (ants[0]) customRoster.A[ants[0]] = 8;
+    customRoster.B[ants[1] ?? ants[0]] = 8;
+  }
 }
 
 /** Sprite URL for a species, or null when it only has a shape descriptor. */
@@ -529,12 +585,14 @@ function thumbUrl(sp) {
 // Ants first, then bugs, alphabetically within each tier — so the grid reads as
 // two clear blocks rather than registration order.
 function sortedSpeciesIds() {
-  return Object.keys(catalog).sort((x, y) => {
-    const a = catalog[x];
-    const b = catalog[y];
-    if (a.tier !== b.tier) return a.tier === 'soldier' ? -1 : 1;
-    return a.name.localeCompare(b.name);
-  });
+  return Object.keys(catalog)
+    .filter((id) => ACQUIRED.has(id))
+    .sort((x, y) => {
+      const a = catalog[x];
+      const b = catalog[y];
+      if (a.tier !== b.tier) return a.tier === 'soldier' ? -1 : 1;
+      return a.name.localeCompare(b.name);
+    });
 }
 
 let builderRendered = false;
@@ -716,7 +774,10 @@ function setupBuilderControls() {
   // "New random battle" hands the fight back to the engine's own tier-driven
   // matchmaking: `custom: null` is what tells it to stop replaying your roster.
   $('btn-new')?.addEventListener('click', () =>
-    send({ cmd: 'restart', config: { mode: currentMode, seed: null, teams: { custom: null } } })
+    send({
+      cmd: 'restart',
+      config: { mode: currentMode, seed: null, teams: { custom: null, ...acquiredPools() } },
+    })
   );
 }
 
@@ -780,4 +841,4 @@ setupFramingControls();
 // Kick off the first battle. (The dev server used to do this on `listen`; with the
 // simulation in-page, the client owns it.)
 setStatus('running');
-arena.start();
+arena.start({ teams: acquiredPools() });

@@ -279,8 +279,11 @@ export class Run {
     this.stats.battlesWon += 1;
     this.stats.larvaeEarned += larvae;
 
-    const unlockedNow = UNLOCK_BY_DEPTH[this.depth];
-    if (unlockedNow && !this.unlocked.includes(unlockedNow)) this.unlocked.push(unlockedNow);
+    // Nothing is unlocked here any more. The campaign is the ONLY place species
+    // are acquired (see game/progress.js) — a second source would mean a player
+    // could field an ant in the sandbox that they never earned, and would put two
+    // difficulty curves in charge of the same roster.
+    const unlockedNow = null;
 
     this.phase = this.depth >= RUN_DEPTH ? 'won' : 'reward';
     this.lastResult = {

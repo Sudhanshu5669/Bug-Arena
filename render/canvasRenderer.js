@@ -1092,10 +1092,11 @@ export class CanvasRenderer {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
 
-    // "BUG ARENA" kicker
+    // Title kicker. Must read as the same product as the shell around it — the
+    // canvas is the one place the game names itself to a player mid-fight.
     ctx.font = `700 ${Math.round(16 + 6 * pop)}px system-ui, sans-serif`;
     ctx.fillStyle = 'rgba(255,225,160,0.85)';
-    ctx.fillText('⚔  BUG ARENA  ⚔', W / 2, H * (portrait ? 0.14 : 0.13));
+    ctx.fillText('⚔  COLONY GLADIATOR  ⚔', W / 2, H * (portrait ? 0.14 : 0.13));
 
     if (portrait) {
       this._rosterColumn(ctx, this._rosterA, 'A', W / 2, H * 0.30, fade);

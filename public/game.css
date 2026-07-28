@@ -48,6 +48,12 @@
 
 * { box-sizing: border-box; }
 
+/* `hidden` must actually hide. The UA rule for [hidden] is a bare type-less
+   selector, so ANY class rule that sets `display` beats it — and this sheet sets
+   display on almost every component. Without this, `el.hidden = true` silently
+   does nothing to a .card or a .team-toggle. */
+[hidden] { display: none !important; }
+
 html, body {
   margin: 0;
   height: 100%;
@@ -482,7 +488,19 @@ button:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
 
 /* --------------------------------------------------------------- result screen */
 
-#screen-result, #screen-over, #screen-victory { align-items: center; justify-content: center; padding: var(--gutter); overflow-y: auto; }
+/* `justify-content: center` alone clips the top of a plate taller than the
+   viewport, because the overflow lands on the un-scrollable start edge. `margin:
+   auto` on the plate centres it when it fits and leaves it scrollable when it
+   does not — which is what a phone in landscape actually needs. */
+#screen-result, #screen-over, #screen-victory, #screen-levelresult {
+  align-items: center;
+  padding: var(--gutter);
+  overflow-y: auto;
+}
+#screen-result .result-plate,
+#screen-over .result-plate,
+#screen-victory .result-plate,
+#screen-levelresult .result-plate { margin: auto; }
 
 .result-plate { max-width: 720px; width: 100%; text-align: center; }
 .result-plate h2 { font-size: clamp(28px, 7vw, 40px); }
@@ -620,6 +638,259 @@ button:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
 #boot .bar { width: 190px; height: 2px; background: var(--chitin); margin: 16px auto 0; border-radius: 999px; overflow: hidden; }
 #boot .bar i { display: block; height: 100%; width: 0%; background: var(--amber); transition: width 200ms ease; }
 
+/* ----------------------------------------------------------- title: modes */
+
+/* Four destinations, each stating what it will actually do. A menu of verbs the
+   player cannot predict the result of is a menu they have to explore by trial. */
+.mode-grid { display: grid; gap: 8px; margin-bottom: 14px; }
+.mode {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  text-align: left;
+  padding: 13px 16px;
+  min-height: 60px;
+}
+.mode b { font-size: 15px; font-weight: 650; }
+.mode small { font-family: var(--font-data); font-size: 11px; color: var(--faint); }
+.mode.primary { background: var(--amber); border-color: var(--amber); color: #2a1b06; }
+.mode.primary:hover:not(:disabled) { background: #ffb944; border-color: #ffb944; }
+.mode.primary small { color: rgba(42, 27, 6, 0.72); }
+
+.warn { margin-top: 14px; font-size: 12px; color: var(--danger); }
+
+.stat-chips {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  font-family: var(--font-data);
+  font-size: 11px;
+  color: var(--faint);
+}
+.stat-chips b { color: var(--muted); font-weight: 500; }
+
+/* -------------------------------------------------------------- campaign */
+
+.camp-body { flex: 1 1 auto; overflow-y: auto; padding: var(--gutter); min-height: 0; }
+.camp-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(158px, 1fr));
+  gap: 10px;
+  max-width: 1180px;
+  margin: 0 auto;
+}
+
+.lv {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 5px;
+  padding: 12px 13px 11px;
+  min-height: 92px;
+  text-align: left;
+  background: var(--chamber);
+}
+.lv .n { font-family: var(--font-data); font-size: 11px; color: var(--faint); }
+.lv .nm { font-family: var(--font-plate); font-size: 15px; line-height: 1.2; }
+.lv.locked { opacity: 0.4; }
+.lv.locked .nm { color: var(--faint); font-style: italic; }
+.lv.open { border-color: var(--chitin-lit); }
+.lv.done { border-color: rgba(123, 216, 143, 0.35); }
+.lv.done .n { color: var(--good); }
+/* The one the player is on. It is the only card with the accent, so "where was
+   I" never needs looking for. */
+.lv.next { border-color: var(--amber); box-shadow: 0 0 0 1px var(--amber-glow), 0 0 18px var(--amber-glow); }
+.lv.boss .nm { color: var(--amber); }
+
+.lv .stars { display: flex; gap: 3px; margin-top: auto; }
+.lv .stars i,
+.star-row i {
+  width: 11px;
+  height: 11px;
+  background: var(--chitin-lit);
+  clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
+}
+.lv .stars i.on, .star-row i.on { background: var(--amber); }
+.lv .crown {
+  position: absolute;
+  top: 9px;
+  right: 10px;
+  font-family: var(--font-data);
+  font-size: 8px;
+  letter-spacing: 0.1em;
+  color: var(--amber-dim);
+}
+
+/* ---------------------------------------------------------------- deploy */
+
+.deploy-body {
+  flex: 1 1 auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 330px;
+  gap: var(--gutter);
+  padding: var(--gutter);
+  min-height: 0;
+}
+
+.deploy-stage { display: flex; flex-direction: column; gap: 10px; min-height: 0; min-width: 0; }
+
+/* Takes the leftover height and nothing more, so the tools row below it — which
+   holds the only button that starts a fight — can never be pushed off screen. */
+.deploy-canvas-wrap {
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* The canvas carries its own aspect-ratio (set from the arena dims in JS) and is
+   clamped by BOTH axes, so it fits a tall phone and a short landscape window
+   without either one cropping it. Pointer coordinates map through the element's
+   rect, so what the box does is what the maths does — no letterbox correction. */
+#deploy-canvas {
+  display: block;
+  margin: auto;
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  border-radius: var(--r);
+  background: #33261a;
+  border: 1px solid var(--chitin);
+  /* Without this a drag on a phone scrolls the page instead of moving the unit. */
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  cursor: crosshair;
+}
+
+.deploy-tools { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.deploy-tools .spacer { flex: 1 1 auto; }
+.team-toggle { display: flex; gap: 4px; }
+.team-toggle button.active[data-team='A'] { border-color: var(--team-a); color: var(--team-a); }
+.team-toggle button.active[data-team='B'] { border-color: var(--team-b); color: var(--team-b); }
+
+.deploy-counters { display: flex; gap: 14px; }
+
+.deploy-side { display: flex; flex-direction: column; gap: 10px; min-height: 0; }
+.card {
+  background: var(--chamber);
+  border: 1px solid var(--chitin);
+  border-radius: var(--r);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+}
+.card.grow { flex: 1 1 auto; }
+.card h3 { font-family: var(--font-plate); font-size: 15px; }
+.card .hint { font-size: 11px; color: var(--faint); line-height: 1.45; }
+
+.lineup { display: flex; flex-direction: column; gap: 4px; max-height: 168px; overflow-y: auto; }
+.lineup-row { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.lineup-row .art { width: 26px; height: 26px; display: grid; place-items: center; flex: 0 0 auto; }
+.lineup-row .art img { max-width: 24px; max-height: 24px; }
+.lineup-row .nm { flex: 0 0 auto; }
+.lineup-row .ab { flex: 1 1 auto; font-size: 11px; color: var(--faint); text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lineup-row .n { font-family: var(--font-data); color: var(--amber); }
+
+.tray {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(138px, 1fr));
+  gap: 8px;
+  align-content: start;
+  min-height: 0;
+}
+
+.tcard {
+  background: var(--chamber-2);
+  border: 1px solid var(--chitin);
+  border-radius: var(--r);
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  /* The card is a drag handle first and a button second. */
+  touch-action: none;
+  cursor: grab;
+  -webkit-user-select: none;
+  user-select: none;
+}
+.tcard.armed { border-color: var(--amber); box-shadow: 0 0 0 1px var(--amber-glow); }
+.tcard.has { border-color: var(--chitin-lit); }
+.tcard.dim { opacity: 0.45; }
+.tcard .art { height: 42px; display: grid; place-items: center; pointer-events: none; }
+.tcard .art img { max-width: 38px; max-height: 40px; object-fit: contain; }
+.tcard .nm { font-size: 12px; font-weight: 600; pointer-events: none; }
+.tcard .ab { font-size: 10px; color: var(--faint); min-height: 2.2em; line-height: 1.1; pointer-events: none; }
+.tcard .row { display: flex; align-items: center; gap: 4px; }
+.tcard .price { font-family: var(--font-data); font-size: 12px; color: var(--amber); }
+.tcard .cnt { font-family: var(--font-data); font-size: 11px; color: var(--muted); }
+.tcard .row button { min-height: 30px; padding: 3px 9px; font-size: 14px; margin-left: auto; }
+.tcard .row button + button { margin-left: 0; }
+
+.dot-art { width: 26px; height: 26px; border-radius: 50%; display: inline-block; }
+
+/* --------------------------------------------------------- level result */
+
+.star-row { display: flex; justify-content: center; gap: 10px; margin: 6px 0 18px; }
+.star-row i { width: 30px; height: 30px; animation: star-pop 380ms cubic-bezier(0.2, 1.5, 0.4, 1) backwards; }
+@keyframes star-pop {
+  from { transform: scale(0.2) rotate(-40deg); opacity: 0; }
+  to { transform: scale(1) rotate(0); opacity: 1; }
+}
+
+.grant {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-align: left;
+  margin: 16px auto 0;
+  max-width: 430px;
+  padding: 12px 14px;
+  background: var(--chamber);
+  border: 1px solid var(--amber-dim);
+  border-radius: var(--r);
+}
+.grant .art { width: 46px; height: 46px; display: grid; place-items: center; flex: 0 0 auto; }
+.grant .art img { max-width: 44px; max-height: 44px; }
+.grant .txt { font-size: 14px; }
+.grant .txt b { color: var(--amber); }
+.grant .txt em { display: block; font-size: 12px; color: var(--faint); font-style: italic; margin-top: 3px; }
+
+/* ------------------------------------------------------------- hatchery */
+
+.hatch-body { flex: 1 1 auto; overflow-y: auto; padding: var(--gutter); min-height: 0; }
+.hatch-list { display: flex; flex-direction: column; gap: 8px; max-width: 720px; margin: 0 auto; }
+.hatch-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 13px;
+  background: var(--chamber);
+  border: 1px solid var(--chitin);
+  border-radius: var(--r);
+}
+.hatch-row.dim { opacity: 0.5; }
+.hatch-row.owned { border-color: rgba(123, 216, 143, 0.3); }
+.hatch-row .art { width: 44px; height: 44px; display: grid; place-items: center; flex: 0 0 auto; }
+.hatch-row .art img { max-width: 42px; max-height: 42px; }
+.hatch-row .info { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.hatch-row .info b { font-size: 14px; }
+.hatch-row .info em { font-size: 11px; color: var(--faint); font-style: italic; }
+.hatch-row .info small { font-family: var(--font-data); font-size: 10px; color: var(--faint); }
+.hatch-row .tag-owned { font-family: var(--font-data); font-size: 11px; color: var(--good); flex: 0 0 auto; }
+.hatch-row button { flex: 0 0 auto; white-space: nowrap; }
+
+.battle-title { font-family: var(--font-data); font-size: 11px; color: var(--faint); margin-right: 4px; }
+
 /* ---------------------------------------------------------------- responsive */
 
 /* Below 900px the sidebar cannot hold a readable roster next to the drawer, so
@@ -667,6 +938,55 @@ button:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
 @media (max-height: 480px) and (orientation: landscape) {
   .colony { max-height: 38vh; }
   .scorebar, .battle-foot { padding-top: 5px; padding-bottom: 5px; }
+}
+
+/* Deploy on a phone: the sand goes on top and the tray becomes a drawer under
+   it. Both halves have to stay on screen at once — a tray that requires scrolling
+   the canvas out of view makes drag-and-drop physically impossible, which is why
+   the stage is capped rather than left to grow. */
+@media (max-width: 900px) {
+  .deploy-body {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+    padding: 10px;
+    gap: 10px;
+  }
+  .deploy-stage { max-height: 46vh; }
+  .deploy-side { max-height: none; }
+  .lineup { max-height: 118px; }
+  .tray { grid-template-columns: repeat(auto-fill, minmax(122px, 1fr)); }
+  .deploy-counters { gap: 10px; }
+  .camp-grid { grid-template-columns: repeat(auto-fill, minmax(136px, 1fr)); gap: 8px; }
+  .mode { min-height: 56px; padding: 11px 14px; }
+}
+
+@media (max-width: 560px) {
+  /* The header wraps to two rows on a phone and was eating a fifth of the
+     screen — height the sand needs far more than the subtitle does. */
+  .topbar { padding: 6px 8px; gap: 6px; }
+  .topbar .foe small { display: none; }
+  .deploy-counters { font-size: 11px; }
+  .lv { min-height: 82px; padding: 10px 11px 9px; }
+  .lv .nm { font-size: 13px; }
+  .tcard .ab { display: none; }
+  .tcard .art { height: 36px; }
+  .stat-chips { gap: 9px; font-size: 10px; }
+  .hatch-row .info em { display: none; }
+  .grant { flex-direction: column; text-align: center; }
+}
+
+/* Landscape phone: vertical room is the scarce resource. Give the sand more of
+   it by putting the tray back beside the stage rather than under it. */
+@media (max-height: 520px) and (orientation: landscape) {
+  .deploy-body {
+    grid-template-columns: minmax(0, 1fr) 260px;
+    grid-template-rows: minmax(0, 1fr);
+  }
+  .deploy-stage { max-height: none; }
+  .deploy-tools button { min-height: 36px; padding: 6px 11px; }
+  .tray { grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); }
+  .lineup { max-height: 96px; }
+  #deploy-enemy-card { flex: 0 0 auto; }
 }
 
 @media (prefers-reduced-motion: reduce) {

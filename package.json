@@ -1,7 +1,7 @@
 {
-  "name": "bug-arena",
+  "name": "colony-gladiator",
   "version": "1.0.0",
-  "description": "Bug Arena — an extensible, headless-capable bug battle simulation engine with a live browser preview.",
+  "description": "Colony Gladiator — a bug-battle campaign, battle maker and sandbox on one deterministic simulation engine.",
   "type": "module",
   "main": "engine/index.js",
   "scripts": {
@@ -16,7 +16,9 @@
     "calibrate": "node tools/calibrate.js",
     "tune": "node tools/tuneIncome.js",
     "sprites:svg": "node tools/rasterizeSvgs.js",
-    "sprites:pixel": "node tools/genPlaceholderSprites.js"
+    "sprites:pixel": "node tools/genPlaceholderSprites.js",
+    "levels": "node tools/levelReport.js",
+    "campaign": "node tools/campaignProbe.js"
   },
   "engines": {
     "node": ">=18"

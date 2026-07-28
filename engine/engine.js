@@ -171,20 +171,29 @@ export class BugArenaEngine extends EventEmitter {
   _spawnTeams() {
     this.spawnPlan = {};
 
-    // Custom roster (from the fight builder): spawn EXACTLY what was requested,
-    // bypassing the random tier squads. Shape:
-    //   teams.custom = { A: [{ species, count }, ...], B: [...] }
+    // Custom roster (from the fight builder / deploy editor): spawn EXACTLY what
+    // was requested, bypassing the random tier squads. Two entry shapes, freely
+    // mixed within one team:
+    //   { species, count }  -> N units, auto-arranged into the usual battle line
+    //   { species, x, y }   -> ONE unit at exactly those arena coordinates
+    // The second is what the deploy editor emits: the player dragged that unit to
+    // that spot, so the fight has to start with it standing there and nowhere else.
     const custom = this.config.teams.custom;
     if (custom && (custom.A || custom.B)) {
       for (const team of [TEAMS.A, TEAMS.B]) {
         const units = this._expandCustomRoster(custom[team]);
-        const total = units.length;
+        // Only auto-arranged units share the line, so they must be counted among
+        // themselves — a placed unit taking a slot would leave a gap in the rank.
+        const autoTotal = units.reduce((n, u) => n + (u.placed ? 0 : 1), 0);
         let idx = 0;
         let soldiers = 0;
         let champions = 0;
-        for (const species of units) {
+        for (const unit of units) {
+          const species = unit.species;
           const isChampion = species.tier === 'champion';
-          const { x, y } = this._spawnPosition(team, idx++, total, isChampion);
+          const { x, y } = unit.placed
+            ? this._clampToArena(unit.x, unit.y, species.stats.size)
+            : this._spawnPosition(team, idx++, autoTotal, isChampion);
           this._spawnAgent(team, species, x, y);
           if (isChampion) champions++;
           else soldiers++;
@@ -241,20 +250,46 @@ export class BugArenaEngine extends EventEmitter {
   }
 
   /**
-   * Turn a builder roster (`[{ species, count }]`) into a flat array of species
-   * configs. Unknown ids are skipped (never crash a battle), and counts are clamped
-   * to a sane range so a stray huge number can't hang the sim.
+   * Turn a builder roster into a flat array of `{ species, placed, x, y }` units.
+   *
+   * Unknown ids are skipped rather than thrown on: a roster is player data that
+   * may outlive the species it names (an old save, a shared battle link), and
+   * losing one unit is a far better outcome than refusing to start the battle.
+   * Counts are clamped so a stray huge number can't hang the sim.
    */
   _expandCustomRoster(list) {
     const units = [];
     if (!Array.isArray(list)) return units;
     for (const entry of list) {
       if (!entry || !entry.species || !registry.hasSpecies(entry.species)) continue;
-      const count = Math.max(0, Math.min(100, Math.floor(entry.count ?? 0)));
       const species = registry.getSpecies(entry.species);
-      for (let i = 0; i < count; i++) units.push(species);
+
+      // An entry carrying finite coordinates is a placed unit: one unit, there.
+      if (Number.isFinite(entry.x) && Number.isFinite(entry.y)) {
+        units.push({ species, placed: true, x: entry.x, y: entry.y });
+        continue;
+      }
+
+      const count = Math.max(0, Math.min(100, Math.floor(entry.count ?? 0)));
+      for (let i = 0; i < count; i++) units.push({ species, placed: false });
     }
     return units;
+  }
+
+  /**
+   * Pull a requested spawn point inside the playable floor.
+   *
+   * A unit placed on (or past) a wall would start the battle intersecting static
+   * geometry, and matter.js resolves that by flinging it — so a sloppy drop near
+   * the edge would launch the unit across the arena before the fight began.
+   */
+  _clampToArena(x, y, size) {
+    const { width, height, wallThickness: t } = this.config.arena;
+    const pad = t + size + 2;
+    return {
+      x: Math.max(pad, Math.min(width - pad, x)),
+      y: Math.max(pad, Math.min(height - pad, y)),
+    };
   }
 
   /** Resolve a tier's species configs; `override` (ids) wins over the registry. */

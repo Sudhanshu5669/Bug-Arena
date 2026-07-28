@@ -8,11 +8,17 @@
       name="viewport"
       content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
     />
-    <meta name="description" content="Draft an ant colony, send it into the pit, and dig fifteen chambers deep." />
+    <meta name="description" content="Draft an ant colony, arrange it on the sand, and fight thirty chambers deep." />
     <meta name="theme-color" content="#16110d" />
     <title>Colony Gladiator</title>
 
     <link rel="stylesheet" href="./game.css" />
+
+    <!-- CrazyGames SDK. `async` on purpose: the game must not wait on a portal
+         script, and portal.js no-ops when the SDK is absent, so a 404 here (local
+         dev, itch, a desktop wrapper) costs nothing at all. boot() additionally
+         races the handshake against a deadline — see withDeadline() in game.js. -->
+    <script async src="https://sdk.crazygames.com/crazygames-sdk-v3.js"></script>
 
     <!-- Matter.js as a classic script: its UMD build puts `Matter` on window, and
          classic scripts run before any deferred module. vendor/matter-shim.js then
@@ -51,58 +57,95 @@
           <h1>Colony<em>Gladiator</em></h1>
           <div class="title-rule"></div>
           <p class="title-sub">
-            Draft a colony, send it into the pit, and dig fifteen chambers deep.
-            What survives a fight is what starts the next one.
+            Draft a colony, arrange it on the sand, and fight thirty chambers deep.
+            Every specimen you beat is a specimen you keep.
           </p>
 
-          <div class="title-actions">
-            <button class="btn-primary" id="btn-continue" hidden>Resume the descent</button>
-            <button class="btn-primary" id="btn-new-run">Found a colony</button>
-            <button class="btn-ghost" id="btn-sandbox">Open the sandbox</button>
+          <div class="meta-strip" id="title-meta">
+            <span>Rank <b id="title-rank">Larva</b></span>
+            <span>Chambers <b id="title-progress">0/30</b></span>
+            <span>Specimens <b id="title-species">2/44</b></span>
+            <span>Jelly <b id="title-coins">0</b></span>
           </div>
 
-          <div class="meta-strip" id="title-meta"></div>
+          <div class="mode-grid">
+            <button class="mode primary" id="btn-campaign"></button>
+            <button class="mode" id="btn-maker"></button>
+            <button class="mode" id="btn-hatchery"></button>
+            <button class="mode" id="btn-descent"></button>
+          </div>
+
+          <button class="btn-ghost btn-small" id="btn-sandbox">Open the free sandbox</button>
+          <p class="warn" id="title-warn" hidden>Storage is blocked here — progress will not survive a reload.</p>
         </div>
       </section>
 
-      <!-- ============================================================ DRAFT -->
-      <section class="screen" id="screen-draft">
+      <!-- ========================================================= CAMPAIGN -->
+      <section class="screen" id="screen-campaign">
         <header class="topbar">
-          <span class="depth-tag" id="draft-depth">Chamber 1</span>
-          <div class="foe">
-            <span id="draft-foe">Scout Party</span>
-            <small>next opposition</small>
-          </div>
+          <button class="btn-small btn-ghost" id="btn-camp-back">‹ Menu</button>
+          <div class="foe"><span>Campaign</span><small>thirty chambers</small></div>
           <div class="spacer"></div>
-          <div class="purse"><span>larvae</span> <b id="draft-purse" class="num">60</b></div>
+          <div class="stat-chips">
+            <span>Rank <b id="camp-rank">Larva</b></span>
+            <span>Cleared <b id="camp-cleared">0/30</b></span>
+            <span>Stars <b id="camp-stars">0/90</b></span>
+            <span>Jelly <b id="camp-coins">0</b></span>
+          </div>
+          <button class="btn-small btn-primary" id="btn-camp-continue">Continue</button>
+        </header>
+        <div class="camp-body">
+          <div class="camp-grid" id="camp-grid"></div>
+        </div>
+      </section>
+
+      <!-- =========================================================== DEPLOY -->
+      <section class="screen" id="screen-deploy">
+        <header class="topbar">
+          <button class="btn-small btn-ghost" id="btn-deploy-back">‹ Back</button>
+          <div class="foe"><span id="deploy-title">Deploy</span><small id="deploy-sub"></small></div>
+          <div class="spacer"></div>
+          <div class="deploy-counters">
+            <span class="purse"><span>larvae left</span> <b id="deploy-budget" class="num">0</b></span>
+            <span class="purse"><span>units</span> <b id="deploy-cap" class="num">0</b></span>
+          </div>
         </header>
 
-        <div class="draft-body">
-          <div class="drawer">
-            <div class="drawer-head">
-              <span class="eyebrow">Specimen drawer</span>
-              <div class="filters">
-                <button class="btn-small active" data-filter="all">All</button>
-                <button class="btn-small" data-filter="soldier">Ants</button>
-                <button class="btn-small" data-filter="champion">Bugs</button>
+        <div class="deploy-body">
+          <div class="deploy-stage">
+            <!-- The canvas needs a wrapper to size against. `max-height:100%` on a
+                 flex child resolves against the CONTAINER, not the space left over
+                 after its siblings — so without this the sand grows until it pushes
+                 the button that starts the fight off the bottom of the screen. -->
+            <div class="deploy-canvas-wrap"><canvas id="deploy-canvas"></canvas></div>
+            <div class="deploy-tools">
+              <div class="team-toggle" id="deploy-teams" hidden>
+                <button class="btn-small active" data-team="A">Blue</button>
+                <button class="btn-small" data-team="B">Red</button>
               </div>
+              <button class="btn-small" id="btn-deploy-auto">Tidy formation</button>
+              <button class="btn-small" id="btn-deploy-clear">Clear</button>
+              <div class="spacer"></div>
+              <button class="btn-primary" id="btn-deploy-fight" disabled>Start the fight</button>
             </div>
-            <div class="specimens" id="specimens"></div>
           </div>
 
-          <aside class="colony">
-            <h3>Your colony</h3>
-            <div class="roster-list" id="roster-list"></div>
-
-            <div class="colony-foot">
-              <div class="strength">
-                <span>Units <b id="army-size" class="num">0</b></span>
-                <span>Strength <b id="army-value" class="num">0</b></span>
+          <aside class="deploy-side">
+            <div class="card" id="deploy-enemy-card">
+              <h3 id="deploy-enemy-name">Opposition</h3>
+              <div class="lineup" id="deploy-enemy"></div>
+            </div>
+            <div class="card grow">
+              <div class="drawer-head">
+                <h3>Your specimens</h3>
+                <div class="filters" id="deploy-filters">
+                  <button class="btn-small active" data-filter="all">All</button>
+                  <button class="btn-small" data-filter="soldier">Ants</button>
+                  <button class="btn-small" data-filter="champion">Bugs</button>
+                </div>
               </div>
-              <div class="scout" id="scout-report"></div>
-              <div class="mutation-chips" id="mutation-chips"></div>
-              <button class="btn-primary" id="btn-fight">Send them in</button>
-              <button class="btn-ghost btn-small" id="btn-abandon">Abandon run</button>
+              <p class="hint">Drag onto the sand, or tap a card then tap the sand. Drag a unit off your half to take it back.</p>
+              <div class="tray" id="deploy-tray"></div>
             </div>
           </aside>
         </div>
@@ -128,6 +171,7 @@
         </div>
 
         <div class="battle-foot">
+          <span class="battle-title" id="battle-title"></span>
           <button class="btn-small" id="btn-speed">Speed ×1</button>
           <button class="btn-small" id="btn-sound">Sound on</button>
           <div class="spacer"></div>
@@ -135,22 +179,89 @@
         </div>
       </section>
 
-      <!-- =========================================================== RESULT -->
+      <!-- ===================================================== LEVEL RESULT -->
+      <section class="screen" id="screen-levelresult">
+        <div class="result-plate">
+          <div class="eyebrow" id="lr-eyebrow">Level cleared</div>
+          <h2 class="win" id="lr-title">The colony holds</h2>
+          <div class="star-row" id="lr-stars"></div>
+          <div class="tally" id="lr-tally"></div>
+          <div class="grant" id="lr-grant" hidden></div>
+          <p class="plate-note" id="lr-note" hidden></p>
+          <div class="title-actions" style="max-width: 380px; margin: 18px auto 0">
+            <button class="btn-primary" id="btn-lr-next">Next level</button>
+            <button class="btn-ghost" id="btn-lr-retry">Replay this level</button>
+            <button class="btn-ghost btn-small" id="btn-lr-boost" hidden>Watch an ad for reinforcements</button>
+            <button class="btn-ghost btn-small" id="btn-lr-select">Level select</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========================================================= HATCHERY -->
+      <section class="screen" id="screen-hatchery">
+        <header class="topbar">
+          <button class="btn-small btn-ghost" id="btn-hatch-back">‹ Menu</button>
+          <div class="foe"><span>The Hatchery</span><small id="hatch-sub"></small></div>
+          <div class="spacer"></div>
+          <div class="purse"><span>royal jelly</span> <b id="hatch-coins" class="num">0</b></div>
+        </header>
+        <div class="hatch-body"><div class="hatch-list" id="hatch-list"></div></div>
+      </section>
+
+      <!-- ================================================== DESCENT · DRAFT -->
+      <section class="screen" id="screen-draft">
+        <header class="topbar">
+          <button class="btn-small btn-ghost" data-home>‹ Menu</button>
+          <span class="depth-tag" id="draft-depth">Chamber 1</span>
+          <div class="foe"><span id="draft-foe">Scout Party</span><small>next opposition</small></div>
+          <div class="spacer"></div>
+          <div class="purse"><span>larvae</span> <b id="draft-purse" class="num">60</b></div>
+        </header>
+
+        <div class="draft-body">
+          <div class="drawer">
+            <div class="drawer-head">
+              <span class="eyebrow">Specimen drawer</span>
+              <div class="filters" id="draft-filters">
+                <button class="btn-small active" data-filter="all">All</button>
+                <button class="btn-small" data-filter="soldier">Ants</button>
+                <button class="btn-small" data-filter="champion">Bugs</button>
+              </div>
+            </div>
+            <div class="specimens" id="specimens"></div>
+          </div>
+
+          <aside class="colony">
+            <h3>Your colony</h3>
+            <div class="roster-list" id="roster-list"></div>
+            <div class="colony-foot">
+              <div class="strength">
+                <span>Units <b id="army-size" class="num">0</b></span>
+                <span>Strength <b id="army-value" class="num">0</b></span>
+              </div>
+              <div class="scout" id="scout-report"></div>
+              <div class="mutation-chips" id="mutation-chips"></div>
+              <button class="btn-primary" id="btn-fight">Send them in</button>
+              <button class="btn-ghost btn-small" id="btn-abandon">Abandon run</button>
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      <!-- ================================================= DESCENT · REWARD -->
       <section class="screen" id="screen-result">
         <div class="result-plate">
           <div class="eyebrow" id="result-eyebrow">Chamber cleared</div>
           <h2 class="win" id="result-title">The colony holds</h2>
-
           <div class="tally" id="result-tally"></div>
           <p class="unlock-note" id="result-unlock" hidden></p>
-
           <div class="eyebrow" style="margin-bottom: 10px">Choose a mutation</div>
           <div class="mutation-grid" id="mutation-grid"></div>
           <button class="btn-ghost btn-small" id="btn-skip-mutation">Take 12 larvae instead</button>
         </div>
       </section>
 
-      <!-- ======================================================== GAME OVER -->
+      <!-- ============================================== DESCENT · GAME OVER -->
       <section class="screen" id="screen-over">
         <div class="result-plate">
           <div class="eyebrow">The descent ends</div>
@@ -159,12 +270,12 @@
           <div class="tally" id="over-tally"></div>
           <div class="title-actions" style="max-width: 320px; margin: 0 auto">
             <button class="btn-primary" id="btn-retry">Found a new colony</button>
-            <button class="btn-ghost" id="btn-over-title">Back to title</button>
+            <button class="btn-ghost" id="btn-over-title">Back to menu</button>
           </div>
         </div>
       </section>
 
-      <!-- ========================================================== VICTORY -->
+      <!-- ================================================= DESCENT · VICTORY -->
       <section class="screen" id="screen-victory">
         <div class="result-plate">
           <div class="eyebrow">Fifteen chambers deep</div>
@@ -173,7 +284,7 @@
           <div class="tally" id="victory-tally"></div>
           <div class="title-actions" style="max-width: 320px; margin: 0 auto">
             <button class="btn-primary" id="btn-ascend">Descend again, harder</button>
-            <button class="btn-ghost" id="btn-victory-title">Back to title</button>
+            <button class="btn-ghost" id="btn-victory-title">Back to menu</button>
           </div>
         </div>
       </section>

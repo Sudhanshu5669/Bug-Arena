@@ -1,13 +1,28 @@
-# 🐛 Bug Arena — v1
+# 🐛 Colony Gladiator
 
-Two things share one engine:
+Four modes share one engine:
 
-- **Colony Gladiator** (`/`) — the game. Draft a colony under a larvae budget,
-  send it into the pit, and dig fifteen chambers deep. What survives a fight is
-  what starts the next one.
-- **The sandbox** (`/sandbox.html`) — the original toy. Pick any number of any of
-  the **44 species** per side and watch them fight, with showreel framing and
+- **Campaign** — 30 hand-designed levels. See the enemy's lineup, arrange your
+  own colony on the sand by drag-and-drop, then start the fight. Every level you
+  clear permanently hands you a species. **This is the only place species are
+  acquired**, anywhere in the game.
+- **Battle Maker** — arrange *both* colonies yourself, unit by unit, and watch
+  what happens. No budget, no opponent chosen for you.
+- **Endless Descent** — the roguelite run. Draft under a budget, keep your
+  survivors, take a mutation, go deeper. Fifteen chambers, one life.
+- **The sandbox** (`/sandbox.html`) — the original toy, with showreel framing and
   camera tools for capturing video.
+
+The **Hatchery** sells the twelve species the campaign never grants, for royal
+jelly earned by winning levels.
+
+### One ledger of what you own
+
+`game/progress.js` is the single source of truth for which of the **44 species**
+you may field, and the campaign is the only thing that writes to it. The battle
+maker, the sandbox and the descent all read from it, so "you can use an ant once
+you have acquired it" is one function (`owns`) rather than a rule four screens
+each have to remember to enforce.
 
 The simulation runs **in the browser**, so the whole thing deploys as a static
 site with no backend. The exact same engine also runs headless in Node, which is
@@ -35,6 +50,10 @@ npm install
 # Play it: http://localhost:3000
 npm start
 
+# Check the campaign before you touch anything in it
+npm run levels      # the 30-level table, integrity checks, the economy
+npm run campaign    # play all 30 headlessly and report what is beatable
+
 # Headless — runs a full battle in Node with NO browser/canvas/DOM.
 # This is the shape the video renderer uses.
 npm run headless                           # random battle
@@ -48,12 +67,65 @@ node examples/headless.js 12345 passive    # passive mode
 
 | File | What it owns |
 |------|--------------|
+| `levels.js` | **The 30 campaign levels.** One line each — see below |
+| `progress.js` | The ownership ledger, level gating, stars, royal jelly, the Hatchery |
+| `formation.js` | Where units stand before a fight. Shared by the editor **and** the probe |
 | `economy.js` | What a unit costs. Prefers the measured table, falls back to a stat formula |
 | `calibrated.js` | **Generated.** Measured price for all 44 species — `npm run calibrate` |
-| `campaign.js` | Enemy colonies, the difficulty curve, the colony cap, victory rewards |
+| `campaign.js` | Descent-mode enemy colonies, difficulty curve, colony cap, rewards |
 | `mutations.js` | The 19 between-battle upgrades, as data |
-| `run.js` | The run state machine: draft → battle → reward → deeper |
+| `run.js` | The descent state machine: draft → battle → reward → deeper |
 | `save.js` | Persistence, with an in-memory fallback when storage is blocked |
+
+### Adding level 31
+
+A level is one line, because everything that can be computed is computed — the
+player's budget from what the opposition actually costs, the unit cap, the coin
+payout, the seed and the boss flag all off the index:
+
+```js
+L('The Drowned Gallery', 'waterBug:2, turtleAnt:12', 'velvetWorm'),
+```
+
+That is the whole change. No budget to hand-tune, no id to keep in sync, no
+unlock table to edit, no screen to touch. Thirty levels cost about thirty lines
+because the only thing stored per level is the part that is genuinely unique:
+what the fight is called, what walks in, and what beating it hands you.
+
+Difficulty is **one dial** — `slack`, the ratio of the player's budget to the
+enemy's cost. It opens at 1.45 (you may outspend them by half again while you
+are learning) and closes to 0.95 by level 30 (you must out-*build* them, because
+you can no longer out-buy them). A level can override it on its own line when
+the probe says it needs to; three of the thirty do.
+
+Because the budget is derived from `costOf()`, retuning a species' price retunes
+every level that fields it — automatically, and in the right direction.
+
+### Deploying an army
+
+`teams.custom` accepts two entry shapes, freely mixed within one team:
+
+```js
+{ species: 'fireAnt', count: 8 }        // 8 units, auto-arranged into a battle line
+{ species: 'fireAnt', x: 240, y: 310 }  // ONE unit, at exactly that spot
+```
+
+The second is what the drag-and-drop editor emits. That is the only engine change
+the whole campaign needed: the player dragged that unit to that spot, so the
+fight has to start with it standing there and nowhere else.
+
+The editor (`public/deployEditor.js`) is one widget with two customers — the
+campaign gives it one editable team against a fixed enemy line, the maker gives
+it both — and it uses Pointer Events throughout, which is what lets one code path
+serve a mouse and a thumb. Three ways to place a unit, because the fastest one
+differs by device:
+
+- **drag from the tray onto the floor** — the obvious one with a mouse
+- **tap a card, then tap the floor** — the obvious one on a phone
+- **tap a card's `+`** — bulk placement without aiming eighteen times
+
+...and one way to remove: drag a unit off its own deploy zone. That reads as
+"take it back off the field" on both devices and needs no separate erase mode.
 
 The engine gained exactly two hooks for this: `teamBuffs` (colony-wide modifiers,
 applied in `_spawnAgent` so reinforcements inherit them) and `setTimeScale`
@@ -67,13 +139,47 @@ minutes and the numbers that matter only appear across hundreds. Every random
 draw is seeded and the engine runs headless, so a full run costs milliseconds:
 
 ```bash
+npm run levels      # the resolved 30-level table + integrity checks + the economy
+npm run campaign    # PLAY all 30 levels headlessly with four different drafters
+npm run campaign -- --verbose   # per-strategy detail for every level
 npm run prices      # every species with its current draft cost
 npm run probe       # sanity checks: mirror matches, buffs, whether numbers win
 npm run calibrate   # MEASURE what each unit is worth -> game/calibrated.js
-npm run sim         # play 200 full runs with a naive drafter; win rate + death depths
-npm run sim -- 1 0 --trace   # follow one run depth by depth
+npm run sim         # play 200 full descent runs with a naive drafter
 npm run tune        # sweep the victory-reward multiplier for the target win band
 ```
+
+**`npm run campaign` is the one that matters for the campaign.** The question a
+30-level campaign has to answer is not "is level 17 hard" but "can a player who
+isn't optimising still reach level 30 without ever coasting" — and you cannot
+answer that by playing it, because one pass is half an hour and the numbers only
+show up across many. So four plausible drafters (swarm, best-value, balanced,
+champion-heavy) are run against every level using the **same formation code and
+the same engine config the game uses**, and the spread is the difficulty read:
+
+| wins | meaning |
+|------|---------|
+| 0 of 4 | a wall — nobody sensible gets past it |
+| 4 of 4 | free — any pile of units clears it |
+| 1–3 of 4 | the target: a build decision that can be got wrong |
+
+The ownership walk matters as much as the fight: each level is played with
+exactly the species the campaign has granted *by that point*, so a level cannot
+be accidentally tuned around a unit the player does not have yet.
+
+Where it currently lands: **30/30 clearable, 28/30 contested, 0 walls**, and the
+only two "free" levels are 1 and 2 — which are the tutorial and are supposed to
+be. Two findings from the first run worth keeping:
+
+- **Level 24 and 28 were genuine walls.** Some compositions fight well above
+  their price tag: three Jumping Spiders land the biggest single hit in the game,
+  and eighteen Jack Jumpers are 35%-damage-taken evasion at ant prices. The
+  honest fix is a `slack` override on those two lines, not repricing the species
+  everywhere.
+- **Level 8 was free because its enemy was ten Worker Ants.** Worker Ant is the
+  roster's deliberate floor, so pricing a colony of them inflates its "value"
+  with units that cannot fight — the player got a budget calibrated against ten
+  bodies and met almost no resistance. Composition was the bug, not the budget.
 
 Two findings from these worth knowing before you retune anything:
 
@@ -111,16 +217,32 @@ strings, because an `img.src` resolves against the document, not the module.
 `public/portal.js` wraps their SDK and no-ops when it is absent, so local, itch
 and desktop builds behave identically. To submit:
 
-1. Add their loader to `<head>` in `public/index.html`:
-   `<script src="https://sdk.crazygames.com/crazygames-sdk-v3.js"></script>`
-   It is deliberately not there now — an external script that hangs would delay
-   first paint on every non-portal build.
-2. `npm run build`, then zip the **contents** of `dist/` (not the folder).
-3. Verify with `npm run serve:portal` first. If it works there, it works there.
+1. `npm run build`, then zip the **contents** of `dist/` (not the folder).
+2. Verify with `npm run serve:portal` first. If it works there, it works there.
 
-Gameplay boundaries are already wired: `portal.gameplayStart()` / `gameplayStop()`
-bracket an actual battle, never the menus, so ads land between fights rather than
-mid-fight.
+What is already wired:
+
+- **The SDK loader** is in `<head>`, marked `async` — the game must never wait on
+  a portal script, and `portal.js` no-ops when it is missing.
+- **The handshake has a deadline.** `boot()` races `portal.init()` against 3
+  seconds (`withDeadline`). `portal.init()` catches anything the SDK *throws*,
+  but a promise that simply never settles — a blocked request, an ad blocker
+  eating the script, a slow portal — would leave the player staring at the
+  loading bar with a fully working game behind it. Better to give up on the SDK
+  than on the game.
+- **Gameplay boundaries.** `gameplayStart()` / `gameplayStop()` bracket an actual
+  battle, never the menus, so ads land between fights rather than mid-fight.
+- **A midgame interstitial every 3 fights**, requested on the transitions *out*
+  of the result screen — the one moment the player is already waiting for a
+  screen to change, so the ad lands in a gap that existed anyway.
+- **A rewarded ad on defeat**, offering +30% larvae for the retry. This is the
+  anti-wall: a player who cannot quite clear a chamber gets a concrete leg-up
+  instead of being asked to grind a mode that has nothing left to give them. It
+  is valid for one attempt at one level and is cleared by winning, so it can
+  never quietly re-tune the difficulty curve.
+
+Everything the build loads is local — no CDN, no web fonts, no external requests
+of any kind beyond the SDK itself.
 
 **How the engine runs unmodified in both places:** `engine/engine.js` imports the
 bare specifiers `matter-js` and `events`, which Node resolves natively. The
@@ -144,8 +266,16 @@ build's global; `events-shim.js` is a minimal `EventEmitter`). Nothing in
 | `render/audio.js` | The sound layer: synthesizes each species' `sfx` recipes with Web Audio. Zero audio files. Also a pure snapshot subscriber. |
 | `server/server.js` | **Dev tool only.** A static file server matching the `dist/` URL layout. It no longer runs the simulation — the browser does. |
 | `tools/buildStatic.js` | Copies `public/ engine/ species/ render/` into `dist/` for deployment. No bundler. |
+| `public/game.js` | App shell: boot, the title screen, routing between the four modes. |
+| `public/deployEditor.js` | The drag-and-drop arrangement canvas. Pointer Events; mouse and touch on one path. |
+| `public/deployScreen.js` | Tray + counters + enemy lineup around the editor. Shared by campaign and maker. |
+| `public/campaignScreen.js` | Level select, deploy, result, stars, ad placements. |
+| `public/makerScreen.js` | Battle maker: both teams editable, no limits. |
+| `public/hatcheryScreen.js` | The royal-jelly shop. |
+| `public/descentScreen.js` | The roguelite run's screens. |
+| `public/battle.js` | The battle screen as a service — every mode hands it a config, gets a summary. |
 | `public/localArena.js` | Owns a `BugArenaEngine` in the page and relays its snapshot stream. This is what replaced the WebSocket server. |
-| `public/client.js` | Roster picker + HUD + kill feed. Renders state; contains no simulation logic. |
+| `public/client.js` | Sandbox roster picker + HUD + kill feed. Renders state; contains no simulation logic. |
 | `examples/headless.js` | Proof the engine runs with no browser. |
 
 ## Core design guarantees
