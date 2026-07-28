@@ -1,12 +1,17 @@
 # 🐛 Bug Arena — v1
 
-A sandbox simulator where two teams of insects fight in a physics-driven arena.
-Pick your colony from a roster of **44 species**, choose how many of each, and
-watch them fight it out.
+Two things share one engine:
+
+- **Colony Gladiator** (`/`) — the game. Draft a colony under a larvae budget,
+  send it into the pit, and dig fifteen chambers deep. What survives a fight is
+  what starts the next one.
+- **The sandbox** (`/sandbox.html`) — the original toy. Pick any number of any of
+  the **44 species** per side and watch them fight, with showreel framing and
+  camera tools for capturing video.
 
 The simulation runs **in the browser**, so the whole thing deploys as a static
 site with no backend. The exact same engine also runs headless in Node, which is
-what the video pipeline uses.
+what the video pipeline and the balance tools use.
 
 ```
 ┌─────────────┐  snapshots (plain data)   ┌──────────────────┐
@@ -37,20 +42,85 @@ node examples/headless.js 12345            # fixed seed → fully reproducible
 node examples/headless.js 12345 passive    # passive mode
 ```
 
-## Deploying
+## The game layer
 
-The engine is loaded by the browser as plain ES modules — there is no bundler and
-no transpile step. A "build" is a file copy into the layout the page's absolute
-imports expect:
+`game/` sits on top of the simulation and holds every rule the engine does not:
+
+| File | What it owns |
+|------|--------------|
+| `economy.js` | What a unit costs. Prefers the measured table, falls back to a stat formula |
+| `calibrated.js` | **Generated.** Measured price for all 44 species — `npm run calibrate` |
+| `campaign.js` | Enemy colonies, the difficulty curve, the colony cap, victory rewards |
+| `mutations.js` | The 19 between-battle upgrades, as data |
+| `run.js` | The run state machine: draft → battle → reward → deeper |
+| `save.js` | Persistence, with an in-memory fallback when storage is blocked |
+
+The engine gained exactly two hooks for this: `teamBuffs` (colony-wide modifiers,
+applied in `_spawnAgent` so reinforcements inherit them) and `setTimeScale`
+(fast-forward that steps more per tick rather than shortening the interval, so a
+3x battle is identical to a 1x one).
+
+### Balance tooling
+
+Balancing a 15-battle roguelite by playing it is not viable — one run is ~20
+minutes and the numbers that matter only appear across hundreds. Every random
+draw is seeded and the engine runs headless, so a full run costs milliseconds:
 
 ```bash
-npm run build     # -> dist/
+npm run prices      # every species with its current draft cost
+npm run probe       # sanity checks: mirror matches, buffs, whether numbers win
+npm run calibrate   # MEASURE what each unit is worth -> game/calibrated.js
+npm run sim         # play 200 full runs with a naive drafter; win rate + death depths
+npm run sim -- 1 0 --trace   # follow one run depth by depth
+npm run tune        # sweep the victory-reward multiplier for the target win band
+```
+
+Two findings from these worth knowing before you retune anything:
+
+- **Prices must scale with the square root of power.** Battles follow Lanchester's
+  square law — army strength goes as N² × per-unit power — so a unit priced
+  linearly in its strength is always a trap. Champions were originally ~5x an
+  ant's price and lost to the five ants they cost 92% of the time.
+- **The colony cap is what keeps the game a game.** Without it a winning player
+  accumulates faster than they lose, and "buy more ants" stays correct forever.
+  With it, larvae stop buying *more* and start buying *better*.
+
+## Deploying
+
+There is no bundler and no transpile step; a "build" is a file copy:
+
+```bash
+npm run build         # -> dist/
+npm run serve:portal  # serve dist/ from a SUBPATH, the way a portal does
 ```
 
 Deploy `dist/` to any static host (Vercel, Netlify, Cloudflare Pages, GitHub
-Pages). `vercel.json` is already set up: build command `node tools/buildStatic.js`,
-output directory `dist`. The whole thing is well under a megabyte and costs
-nothing to serve, because every visitor simulates their own battle locally.
+Pages, itch.io). It is under a megabyte and costs nothing to serve, because every
+visitor simulates their own battles locally.
+
+**Every path in this project is relative, and must stay that way.** Portals serve
+a game from a subpath like `/games/<slug>/`, where a leading `/` resolves to the
+portal's root and 404s. `npm run serve:portal` exists to catch that: it mounts
+the build at `/games/bug-arena/` and serves *nothing* at the root, so an absolute
+path fails there instead of silently working on a normal dev server. Module code
+resolves assets via `new URL(..., import.meta.url)` rather than bare relative
+strings, because an `img.src` resolves against the document, not the module.
+
+### Shipping to CrazyGames
+
+`public/portal.js` wraps their SDK and no-ops when it is absent, so local, itch
+and desktop builds behave identically. To submit:
+
+1. Add their loader to `<head>` in `public/index.html`:
+   `<script src="https://sdk.crazygames.com/crazygames-sdk-v3.js"></script>`
+   It is deliberately not there now — an external script that hangs would delay
+   first paint on every non-portal build.
+2. `npm run build`, then zip the **contents** of `dist/` (not the folder).
+3. Verify with `npm run serve:portal` first. If it works there, it works there.
+
+Gameplay boundaries are already wired: `portal.gameplayStart()` / `gameplayStop()`
+bracket an actual battle, never the menus, so ads land between fights rather than
+mid-fight.
 
 **How the engine runs unmodified in both places:** `engine/engine.js` imports the
 bare specifiers `matter-js` and `events`, which Node resolves natively. The

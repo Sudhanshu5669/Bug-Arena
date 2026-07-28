@@ -22,6 +22,13 @@
 import { drawAgent, SpriteCache } from './rendererAbstraction.js';
 import { preloadSprites } from './spriteLoader.js';
 
+// Asset root, resolved against THIS module's URL. Image `src` strings resolve
+// against the DOCUMENT, so a bare relative path would break the moment the page
+// lives at a different depth than the renderer — which is exactly what happens
+// when a portal serves the build from /games/<slug>/. Anchoring to import.meta.url
+// makes the location of the HTML file irrelevant.
+const SPRITE_BASE = new URL('../assets/sprites', import.meta.url).href;
+
 const TEAM = {
   A: { ring: '#4ea1ff', glow: 'rgba(78,161,255,0.55)' },
   B: { ring: '#ff5d73', glow: 'rgba(255,93,115,0.55)' },
@@ -42,6 +49,12 @@ const WIDE_FX = new Set([
 ]);
 const MAX_WIDE_FX = 3; // concurrent; oldest is dropped past this
 
+// Absolute ceilings on transient state, so one frame's draw cost is bounded no
+// matter what the battle throws at it. Well above what a busy fight normally holds
+// (~30-60 FX), so these only ever bite during a genuine burst.
+const MAX_FX = 160;
+const MAX_FLOAT_TEXT = 90;
+
 // --- showreel timing ---------------------------------------------------------
 const INTRO_SECONDS = 2.0; // VS card holds, then fades off the opening
 const REPLAY_FRAMES = 70; // snapshots of the finish that get replayed (~1.2s)
@@ -49,6 +62,17 @@ const REPLAY_HISTORY = 240; // ring buffer depth (must exceed REPLAY_FRAMES)
 const REPLAY_RATE = 0.3; // playback speed of the replay — the slow-mo
 const REPLAY_ZOOM = 2.6; // how far the camera punches in on the killing blow
 const OUTRO_DELAY = 0.35; // beat between the replay ending and the winner card
+
+// Watchdog. `ingest()` deliberately ignores live snapshots while the showreel is
+// replaying or holding the winner card, and 'outro' has no timed exit of its own —
+// it ends when the next battle's `setInit()` arrives. So ANY path that leaves the
+// renderer parked in a non-live phase (an init that never comes, a replay that
+// can't advance) freezes the canvas on one frame while the HUD and kill feed carry
+// on updating from the same stream, which reads as "the picture hung but the fight
+// didn't". Rather than enumerate those paths, cap the time the renderer may spend
+// outside 'live' and drop back on its own. Comfortably longer than a normal
+// replay + card hold (~1.2s slow-mo, then the 9s restart delay).
+const MAX_NON_LIVE_SECONDS = 14;
 
 // Status chips shown above a single agent; the rest are truncated to "+N".
 const MAX_STATUS_LABELS = 2;
@@ -167,7 +191,7 @@ export class CanvasRenderer {
       this._foodImg = null; // keep the procedural fallback
       console.warn('[food] food.svg failed to load — using procedural morsel.');
     };
-    img.src = '/assets/sprites/src/food.svg';
+    img.src = new URL('../assets/sprites/src/food.svg', import.meta.url).href;
   }
 
   /** Switch render target between the wide preview and the 9:16 Shorts frame. */
@@ -225,7 +249,9 @@ export class CanvasRenderer {
     this._rosterB = [];
 
     // Preload one sprite image per species (async; shapes show until loaded).
-    preloadSprites(init.catalog, this.spriteCache, '/assets/sprites');
+    // The base is resolved against THIS module's URL rather than the document, so
+    // the renderer keeps working when the build is served from a subpath.
+    preloadSprites(init.catalog, this.spriteCache, SPRITE_BASE);
 
     this.effects = [];
     this._floatText = [];
@@ -692,6 +718,18 @@ export class CanvasRenderer {
     if (!this.showreel) return;
     this._phaseT += dt;
 
+    // Self-heal: never stay stranded out of 'live'. See MAX_NON_LIVE_SECONDS.
+    if (this._phase !== 'live' && this._phaseT > MAX_NON_LIVE_SECONDS) {
+      console.warn(
+        `[render] stuck in "${this._phase}" for ${this._phaseT.toFixed(1)}s — resuming live view.`
+      );
+      this._phase = 'live';
+      this._phaseT = 0;
+      // Whatever snapshot the stall left behind is stale; the next ingest() now
+      // gets through and repopulates it.
+      return;
+    }
+
     if (this._phase === 'intro') {
       if (this._phaseT >= INTRO_SECONDS) {
         this._phase = 'live';
@@ -886,7 +924,23 @@ export class CanvasRenderer {
   // ---------------------------------------------------------------------------
 
   render(now = performance.now()) {
-    const dt = this._lastFrameTs ? Math.min(0.05, (now - this._lastFrameTs) / 1000) : 0.016;
+    // TWO deltas, deliberately.
+    //
+    // `dt` is clamped, because the camera and the showreel phase machine are
+    // integrators — feeding them a 5-second step would fling the camera across
+    // the arena and skip an entire replay.
+    //
+    // `ageDt` is NOT clamped, and transient FX must age on it. Effects are created
+    // from the snapshot stream (engine `setInterval`, real time, and it keeps
+    // running when this loop doesn't) but destroyed here, once per frame. Ageing
+    // them on the clamped `dt` means that any time rendering falls behind, FX are
+    // produced faster than they expire — and since more live FX makes each frame
+    // slower, that gap widens by itself until the canvas stops updating entirely
+    // while the battle carries on. That death spiral is what this split fixes:
+    // on the first frame after a stall, everything stale expires at once.
+    const rawDt = this._lastFrameTs ? (now - this._lastFrameTs) / 1000 : 0.016;
+    const dt = Math.min(0.05, rawDt);
+    const ageDt = Math.min(2, rawDt); // 2s is already far past every ttl in the game
     this._lastFrameTs = now;
 
     const ctx = this.ctx;
@@ -924,9 +978,9 @@ export class CanvasRenderer {
       else if (this._phase === 'outro') this._drawOutroCard(ctx);
     }
 
-    this._ageEffects(dt);
-    this._ageAgentFx(dt);
-    this._ageFloatText(dt);
+    this._ageEffects(ageDt);
+    this._ageAgentFx(ageDt);
+    this._ageFloatText(ageDt);
     this._ageHeat(dt);
   }
 
@@ -990,6 +1044,12 @@ export class CanvasRenderer {
   _ageFloatText(dt) {
     for (const f of this._floatText) f.life -= dt / f.ttl;
     this._floatText = this._floatText.filter((f) => f.life > 0);
+    // Same ceiling, same reason: one AoE proc into a packed squad spawns a damage
+    // number per victim, and text is more expensive to draw than most FX.
+    if (this._floatText.length > MAX_FLOAT_TEXT) {
+      this._floatText.sort((a, b) => b.life - a.life);
+      this._floatText.length = MAX_FLOAT_TEXT;
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -1554,6 +1614,15 @@ export class CanvasRenderer {
   _ageEffects(dt) {
     for (const fx of this.effects) fx.life -= dt / fx.ttl;
     this.effects = this.effects.filter((fx) => fx.life > 0);
+    // Absolute ceiling on per-frame draw cost. `MAX_WIDE_FX` already bounds the big
+    // auras, but nothing bounded the small ones — and the wide-area abilities in the
+    // roster (acid mists, ground slams, spore blooms) can land dozens of small hits
+    // in a single tick. Freshest survive: the newest FX are the ones the viewer is
+    // actually looking at.
+    if (this.effects.length > MAX_FX) {
+      this.effects.sort((a, b) => b.life - a.life);
+      this.effects.length = MAX_FX;
+    }
   }
 
   _ageAgentFx(dt) {

@@ -8,7 +8,13 @@
     "start": "node server/server.js",
     "dev": "node server/server.js",
     "build": "node tools/buildStatic.js",
+    "serve:portal": "node tools/servePortal.js",
     "headless": "node examples/headless.js",
+    "prices": "node tools/priceReport.js",
+    "sim": "node tools/simRun.js",
+    "probe": "node tools/balanceProbe.js",
+    "calibrate": "node tools/calibrate.js",
+    "tune": "node tools/tuneIncome.js",
     "sprites:svg": "node tools/rasterizeSvgs.js",
     "sprites:pixel": "node tools/genPlaceholderSprites.js"
   },

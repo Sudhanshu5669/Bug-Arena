@@ -9,7 +9,8 @@
 /**
  * @param {Array}  catalog   - init.catalog (species with visual descriptors)
  * @param {object} cache     - a SpriteCache to populate
- * @param {string} basePath  - e.g. '/assets/sprites'
+ * @param {string} basePath  - absolute URL to the sprite root, e.g. the result of
+ *                             `new URL('../assets/sprites', import.meta.url).href`
  * @param {(loaded:number, total:number) => void} [onProgress]
  * @returns {Promise<void>} resolves once every image has loaded or failed
  */

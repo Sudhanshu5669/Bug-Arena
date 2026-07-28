@@ -2,386 +2,185 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Bug Arena — Live Preview</title>
-    <style>
-      :root {
-        --bg: #0b0e14;
-        --panel: #141924;
-        --panel-2: #1b2130;
-        --line: #262d3d;
-        --text: #e6e9ef;
-        --muted: #8b93a7;
-        --a: #4ea1ff;
-        --b: #ff5d73;
-        --accent: #7bd88f;
-      }
-      * { box-sizing: border-box; }
-      body {
-        margin: 0;
-        background: var(--bg);
-        color: var(--text);
-        font: 14px/1.5 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-      }
-      .wrap {
-        display: grid;
-        grid-template-columns: minmax(0, 1fr) 320px;
-        gap: 16px;
-        max-width: 1360px;
-        margin: 0 auto;
-        padding: 16px;
-        /* Without this the stage card stretches to the sidebar's height and renders
-           as a tall empty panel below the canvas. */
-        align-items: start;
-      }
-      header {
-        grid-column: 1 / -1;
-        display: flex;
-        align-items: baseline;
-        gap: 12px;
-      }
-      header h1 { margin: 0; font-size: 20px; letter-spacing: 0.3px; }
-      header .sub { color: var(--muted); font-size: 13px; }
-      .stage {
-        position: relative;
-        background: var(--panel);
-        border: 1px solid var(--line);
-        border-radius: 12px;
-        padding: 12px;
-      }
-      canvas {
-        width: 100%;
-        height: auto;
-        aspect-ratio: 16 / 9;
-        display: block;
-        border-radius: 8px;
-        background: #0a0806;
-        margin: 0 auto;
-      }
-      /* 9:16 Shorts framing — keep the tall canvas centered and on-screen. */
-      .stage.portrait canvas {
-        aspect-ratio: 9 / 16;
-        width: auto;
-        max-width: 100%;
-        height: min(78vh, 720px);
-      }
-      .overlay {
-        position: absolute;
-        inset: 12px;
-        display: none;
-        align-items: center;
-        justify-content: center;
-        flex-direction: column;
-        gap: 8px;
-        background: rgba(6, 8, 12, 0.82);
-        border-radius: 8px;
-        text-align: center;
-      }
-      .overlay.show { display: flex; }
-      .overlay h2 { margin: 0; font-size: 28px; }
-      .overlay p { margin: 0; color: var(--muted); }
-      .side { display: flex; flex-direction: column; gap: 12px; }
-      .card {
-        background: var(--panel);
-        border: 1px solid var(--line);
-        border-radius: 12px;
-        padding: 12px 14px;
-      }
-      .card h3 {
-        margin: 0 0 10px;
-        font-size: 12px;
-        text-transform: uppercase;
-        letter-spacing: 0.8px;
-        color: var(--muted);
-      }
-      .scorebar { display: flex; align-items: center; gap: 10px; }
-      .scorebar .n { font-size: 26px; font-weight: 700; min-width: 34px; text-align: center; }
-      .scorebar .n.a { color: var(--a); }
-      .scorebar .n.b { color: var(--b); }
-      .bar { flex: 1; height: 10px; border-radius: 6px; overflow: hidden; background: var(--b); display: flex; }
-      .bar > i { display: block; height: 100%; background: var(--a); transition: width 0.2s; }
-      .meta { display: flex; justify-content: space-between; color: var(--muted); font-size: 12px; margin-top: 8px; }
-      .roster { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-      /* Species vanish from these lists as they're wiped out — pinned for the same
-         no-reflow reason as .feed above. */
-      .roster .team-col > div { height: 132px; overflow-y: auto; }
-      #abilities { height: 96px; overflow-y: auto; }
-      .roster .team-col h4 { margin: 0 0 6px; font-size: 12px; }
-      .roster .team-col.a h4 { color: var(--a); }
-      .roster .team-col.b h4 { color: var(--b); }
-      .sp-row { display: flex; align-items: center; gap: 6px; font-size: 12px; margin-bottom: 3px; }
-      .dot { width: 10px; height: 10px; border-radius: 50%; flex: none; border: 1px solid rgba(0,0,0,0.4); }
-      .sp-row .cnt { margin-left: auto; color: var(--muted); font-variant-numeric: tabular-nums; }
-      /* Every live panel below is a FIXED height, not a max-height.
-         The roster grid sits in the next grid row, so its vertical position is
-         `max(stage, sidebar)` — and anything in the sidebar that grows or shrinks
-         during a battle drags the whole roster up and down under the user's cursor.
-         The event feed was the worst offender (0 -> 260px as kills accumulated,
-         then back to 0 on the auto-restart), which made the +/- steppers genuinely
-         hard to hit. Fixed heights make the sidebar a constant. */
-      .feed { height: 260px; overflow-y: auto; display: flex; flex-direction: column; gap: 3px; }
-      .feed .line { font-size: 12px; color: var(--muted); }
-      .feed .line b { color: var(--text); font-weight: 600; }
-      .controls { display: flex; flex-wrap: wrap; gap: 8px; }
-      button {
-        background: var(--panel-2);
-        color: var(--text);
-        border: 1px solid var(--line);
-        border-radius: 8px;
-        padding: 8px 12px;
-        font-size: 13px;
-        cursor: pointer;
-      }
-      button:hover { border-color: #3a445c; }
-      button.primary { background: var(--accent); color: #06210f; border-color: transparent; font-weight: 600; }
-      .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
-      .seg button { border: none; border-radius: 0; }
-      .seg button.active { background: var(--a); color: #04121f; }
-      .status-pill { font-size: 11px; color: var(--muted); }
+    <!-- viewport-fit + user-scalable=no: this is a game, and pinch-zooming the
+         arena mid-battle is never what a player meant to do. -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+    />
+    <meta name="description" content="Draft an ant colony, send it into the pit, and dig fifteen chambers deep." />
+    <meta name="theme-color" content="#16110d" />
+    <title>Colony Gladiator</title>
 
-      /* --- Sound controls --- */
-      .sound-row { display: flex; align-items: center; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
-      .sound-row button.muted { opacity: 0.55; }
-      .sound-row input[type="range"] { flex: 1; min-width: 90px; accent-color: var(--accent); }
-      .sound-hint { font-size: 10px; color: var(--muted); flex-basis: 100%; }
-      .sound-hint.hidden { display: none; }
-
-      /* --- Roster picker ------------------------------------------------------
-         Spans both grid columns and sits under the stage: 44 species need real
-         width, and a card grid is the only layout where the artwork does the
-         identifying instead of the text. */
-      .roster-panel { grid-column: 1 / -1; }
-      .roster-head {
-        display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
-        margin-bottom: 12px;
-      }
-      .roster-head .spacer { flex: 1; }
-      .search {
-        background: var(--panel-2); color: var(--text); border: 1px solid var(--line);
-        border-radius: 8px; padding: 7px 10px; font: inherit; font-size: 13px; width: 170px;
-      }
-      .search::placeholder { color: #5c6377; }
-
-      /* Army summary: the two colonies you have actually assembled. */
-      .armies { display: grid; grid-template-columns: 1fr auto 1fr; gap: 10px; align-items: stretch; margin-bottom: 12px; }
-      .army {
-        background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px;
-        padding: 10px 12px; min-height: 62px;
-      }
-      .army.a { border-left: 3px solid var(--a); }
-      .army.b { border-right: 3px solid var(--b); }
-      .army h4 { margin: 0 0 4px; font-size: 11px; letter-spacing: 0.6px; text-transform: uppercase; }
-      .army.a h4 { color: var(--a); }
-      .army.b h4 { color: var(--b); }
-      .army.b { text-align: right; }
-      .army .tally { font-size: 12px; color: var(--muted); }
-      .army .tally b { color: var(--text); font-variant-numeric: tabular-nums; }
-      .army .picks { font-size: 11px; color: var(--muted); margin-top: 3px; line-height: 1.45; }
-      .army .empty { color: #5c6377; font-style: italic; }
-      .vs { align-self: center; font-size: 13px; font-weight: 700; color: var(--muted); letter-spacing: 1px; }
-
-      .roster-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(158px, 1fr));
-        gap: 10px;
-      }
-      .sp-card {
-        background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px;
-        padding: 9px; display: flex; flex-direction: column; gap: 6px;
-        transition: border-color 0.15s, transform 0.1s;
-      }
-      .sp-card:hover { border-color: #3a445c; }
-      /* A species already in a fight is highlighted by whichever side took it. */
-      .sp-card.in-a { border-color: var(--a); box-shadow: inset 3px 0 0 -1px var(--a); }
-      .sp-card.in-b { border-color: var(--b); box-shadow: inset -3px 0 0 -1px var(--b); }
-      .sp-card.in-a.in-b { border-color: #8a7bd8; box-shadow: inset 3px 0 0 -1px var(--a), inset -3px 0 0 -1px var(--b); }
-      .sp-card.hidden { display: none; }
-
-      .sp-card .thumb {
-        width: 100%; height: 72px; object-fit: contain; display: block;
-        /* The art is authored facing UP; a slight drop shadow lifts it off the card. */
-        filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.5));
-      }
-      .sp-card .nm { font-size: 12.5px; font-weight: 600; line-height: 1.25; }
-      .sp-card .tier {
-        font-size: 9.5px; letter-spacing: 0.7px; text-transform: uppercase;
-        padding: 1px 5px; border-radius: 4px; align-self: flex-start;
-      }
-      .tier.soldier { background: #23331f; color: #9ed88f; }
-      .tier.champion { background: #33231f; color: #ffb37a; }
-      .sp-card .ab { font-size: 10.5px; color: #9aa3b7; line-height: 1.3; min-height: 27px; }
-      .sp-card .ab i { color: #6f7891; }
-      .sp-card .stats {
-        display: flex; gap: 7px; font-size: 10px; color: var(--muted);
-        font-variant-numeric: tabular-nums; border-top: 1px solid var(--line); padding-top: 5px;
-      }
-      .sp-card .stats span b { color: #c6ccda; font-weight: 600; }
-
-      /* Two steppers per card — assign to either colony without switching lists. */
-      .picker { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
-      .pick {
-        display: flex; align-items: center; justify-content: space-between; gap: 2px;
-        background: var(--panel); border: 1px solid var(--line); border-radius: 7px; padding: 2px;
-      }
-      .pick.a.on { border-color: var(--a); background: #10243a; }
-      .pick.b.on { border-color: var(--b); background: #3a1620; }
-      .pick .lbl { font-size: 9.5px; font-weight: 700; padding-left: 3px; }
-      .pick.a .lbl { color: var(--a); }
-      .pick.b .lbl { color: var(--b); }
-      .pick button {
-        padding: 0; width: 19px; height: 19px; line-height: 1; font-size: 13px;
-        border-radius: 5px; background: var(--panel-2); display: grid; place-items: center;
-      }
-      .pick .n { min-width: 15px; text-align: center; font-size: 11.5px; font-variant-numeric: tabular-nums; }
-
-      .roster-foot { display: flex; align-items: center; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
-      .seed-field { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 5px; }
-      .seed-field input {
-        width: 78px; background: var(--panel-2); color: var(--text);
-        border: 1px solid var(--line); border-radius: 6px; padding: 5px 7px; font: inherit;
-      }
-      .build-hint { font-size: 11px; color: var(--b); margin-top: 6px; min-height: 14px; }
-
-      @media (max-width: 900px) {
-        .wrap { grid-template-columns: 1fr; }
-        .armies { grid-template-columns: 1fr; }
-        .vs { justify-self: center; }
-        .army.b { text-align: left; }
-      }
-    </style>
+    <link rel="stylesheet" href="./game.css" />
 
     <!-- Matter.js as a classic script: its UMD build puts `Matter` on window, and
-         classic scripts in <head> run before any deferred module. vendor/matter-shim.js
-         then re-exports that global for the engine's `import Matter from 'matter-js'`. -->
-    <script src="/vendor/matter.min.js"></script>
+         classic scripts run before any deferred module. vendor/matter-shim.js then
+         re-exports that global for the engine's `import Matter from 'matter-js'`. -->
+    <script src="./vendor/matter.min.js"></script>
 
-    <!-- Import map: lets the UNMODIFIED engine source (which imports the bare
-         specifiers 'matter-js' and 'events', both Node-resolved) run as-is in the
-         browser. Same engine/ files power the Node headless renderer. -->
+    <!-- Every specifier here is RELATIVE. Portals serve the build from a subpath
+         (/games/<slug>/), where a leading "/" resolves to the portal's own root
+         and 404s. Import-map values resolve against the document URL, so these
+         follow the page wherever it is mounted. -->
     <script type="importmap">
       {
         "imports": {
-          "matter-js": "/vendor/matter-shim.js",
-          "events": "/vendor/events-shim.js"
+          "matter-js": "./vendor/matter-shim.js",
+          "events": "./vendor/events-shim.js"
         }
       }
     </script>
   </head>
+
   <body>
-    <div class="wrap">
-      <header>
-        <h1>🐛 Bug Arena</h1>
-        <span class="sub">build a colony, pick your champions, and watch them fight — simulated live in your browser</span>
-      </header>
-
-      <div class="stage">
-        <canvas id="arena" width="1280" height="720"></canvas>
-        <div class="overlay" id="overlay">
-          <h2 id="overlay-title">Battle Over</h2>
-          <p id="overlay-sub"></p>
-        </div>
-      </div>
-
-      <div class="side">
-        <div class="card">
-          <h3>Survivors</h3>
-          <div class="scorebar">
-            <span class="n a" id="score-a">0</span>
-            <span class="bar"><i id="bar-a" style="width: 50%"></i></span>
-            <span class="n b" id="score-b">0</span>
-          </div>
-          <div class="meta">
-            <span id="meta-time">0.0s</span>
-            <span class="status-pill" id="meta-status">connecting…</span>
-            <span id="meta-mode">—</span>
-          </div>
-        </div>
-
-        <div class="card">
-          <h3>Rosters</h3>
-          <div class="roster">
-            <div class="team-col a"><h4>Team A</h4><div id="roster-a"></div></div>
-            <div class="team-col b"><h4>Team B</h4><div id="roster-b"></div></div>
-          </div>
-        </div>
-
-        <div class="card">
-          <h3>Abilities <span style="text-transform:none;letter-spacing:0;color:#5c6377">(debug — cooldowns)</span></h3>
-          <div id="abilities"></div>
-        </div>
-
-        <div class="card">
-          <h3>Event Feed</h3>
-          <div class="feed" id="feed"></div>
-        </div>
-
-        <div class="card">
-          <h3>Controls</h3>
-          <div class="controls">
-            <span class="seg">
-              <button id="mode-agg">Aggressive</button>
-              <button id="mode-pass" class="active">Passive</button>
-            </span>
-          </div>
-          <div class="sound-row">
-            <span class="seg">
-              <button id="fmt-wide" class="active" title="16:9 desktop preview">16:9</button>
-              <button id="fmt-short" title="9:16 — YouTube Shorts framing">9:16</button>
-            </span>
-            <button id="btn-camera" title="Action camera follows and zooms on the fight">🎥 Action cam</button>
-            <button id="btn-showreel" title="Intro VS card, slow-mo replay of the killing blow, and a winner card">🎬 Showreel: on</button>
-          </div>
-          <div class="sound-row">
-            <button id="btn-sound" title="Toggle sound">🔊 Sound</button>
-            <input id="vol" type="range" min="0" max="100" value="60" aria-label="Volume" />
-            <span class="sound-hint" id="sound-hint">click anywhere to enable audio</span>
-          </div>
-          <div class="meta"><span id="meta-seed">seed —</span></div>
-        </div>
-
-      </div>
-
-      <div class="card roster-panel">
-        <div class="roster-head">
-          <h3 style="margin:0">Roster</h3>
-          <span class="seg">
-            <button id="filt-all" class="active">All</button>
-            <button id="filt-soldier">Ants</button>
-            <button id="filt-champion">Bugs</button>
-          </span>
-          <input id="roster-search" class="search" type="search" placeholder="Search species…" />
-          <span class="spacer"></span>
-          <button id="btn-random-army">🎲 Random armies</button>
-          <button id="btn-mirror">⇄ Mirror A→B</button>
-          <button id="btn-clear-build">Clear</button>
-        </div>
-
-        <div class="armies">
-          <div class="army a">
-            <h4>Team A</h4>
-            <div class="tally" id="tally-a"><b>0</b> units</div>
-            <div class="picks empty" id="picks-a">nothing picked</div>
-          </div>
-          <div class="vs">VS</div>
-          <div class="army b">
-            <h4>Team B</h4>
-            <div class="tally" id="tally-b"><b>0</b> units</div>
-            <div class="picks empty" id="picks-b">nothing picked</div>
-          </div>
-        </div>
-
-        <div class="roster-grid" id="roster-grid"></div>
-
-        <div class="roster-foot">
-          <button class="primary" id="btn-simulate">▶ Start Battle</button>
-          <label class="seed-field">Seed <input id="build-seed" type="text" inputmode="numeric" placeholder="random" /></label>
-          <span class="spacer"></span>
-          <button id="btn-new">New random battle</button>
-        </div>
-        <div class="build-hint" id="build-hint"></div>
+    <!-- Boot gate. Portals judge a game on how fast it shows something, and the
+         sprite preload plus engine warm-up is otherwise a blank screen. -->
+    <div id="boot">
+      <div class="inner">
+        <div class="eyebrow">Colony Gladiator</div>
+        <div class="bar"><i id="boot-bar"></i></div>
       </div>
     </div>
 
-    <script type="module" src="/client.js"></script>
+    <div id="app">
+      <!-- ============================================================ TITLE -->
+      <section class="screen active" id="screen-title">
+        <div class="title-plate">
+          <div class="eyebrow">Formicarium · specimen trials</div>
+          <h1>Colony<em>Gladiator</em></h1>
+          <div class="title-rule"></div>
+          <p class="title-sub">
+            Draft a colony, send it into the pit, and dig fifteen chambers deep.
+            What survives a fight is what starts the next one.
+          </p>
+
+          <div class="title-actions">
+            <button class="btn-primary" id="btn-continue" hidden>Resume the descent</button>
+            <button class="btn-primary" id="btn-new-run">Found a colony</button>
+            <button class="btn-ghost" id="btn-sandbox">Open the sandbox</button>
+          </div>
+
+          <div class="meta-strip" id="title-meta"></div>
+        </div>
+      </section>
+
+      <!-- ============================================================ DRAFT -->
+      <section class="screen" id="screen-draft">
+        <header class="topbar">
+          <span class="depth-tag" id="draft-depth">Chamber 1</span>
+          <div class="foe">
+            <span id="draft-foe">Scout Party</span>
+            <small>next opposition</small>
+          </div>
+          <div class="spacer"></div>
+          <div class="purse"><span>larvae</span> <b id="draft-purse" class="num">60</b></div>
+        </header>
+
+        <div class="draft-body">
+          <div class="drawer">
+            <div class="drawer-head">
+              <span class="eyebrow">Specimen drawer</span>
+              <div class="filters">
+                <button class="btn-small active" data-filter="all">All</button>
+                <button class="btn-small" data-filter="soldier">Ants</button>
+                <button class="btn-small" data-filter="champion">Bugs</button>
+              </div>
+            </div>
+            <div class="specimens" id="specimens"></div>
+          </div>
+
+          <aside class="colony">
+            <h3>Your colony</h3>
+            <div class="roster-list" id="roster-list"></div>
+
+            <div class="colony-foot">
+              <div class="strength">
+                <span>Units <b id="army-size" class="num">0</b></span>
+                <span>Strength <b id="army-value" class="num">0</b></span>
+              </div>
+              <div class="scout" id="scout-report"></div>
+              <div class="mutation-chips" id="mutation-chips"></div>
+              <button class="btn-primary" id="btn-fight">Send them in</button>
+              <button class="btn-ghost btn-small" id="btn-abandon">Abandon run</button>
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      <!-- =========================================================== BATTLE -->
+      <section class="screen" id="screen-battle">
+        <div class="scorebar">
+          <span class="a num" id="score-a">0</span>
+          <div class="track"><i id="score-track"></i></div>
+          <span class="b num" id="score-b">0</span>
+          <span class="num" id="battle-clock" style="color: var(--faint)">0.0s</span>
+        </div>
+
+        <div class="stage">
+          <canvas id="arena" width="1280" height="720"></canvas>
+          <div class="veil" id="battle-veil">
+            <div class="inner">
+              <h2 id="veil-title">Victory</h2>
+              <p class="plate-note" id="veil-sub"></p>
+            </div>
+          </div>
+        </div>
+
+        <div class="battle-foot">
+          <button class="btn-small" id="btn-speed">Speed ×1</button>
+          <button class="btn-small" id="btn-sound">Sound on</button>
+          <div class="spacer"></div>
+          <button class="btn-small btn-primary" id="btn-skip">Skip to result</button>
+        </div>
+      </section>
+
+      <!-- =========================================================== RESULT -->
+      <section class="screen" id="screen-result">
+        <div class="result-plate">
+          <div class="eyebrow" id="result-eyebrow">Chamber cleared</div>
+          <h2 class="win" id="result-title">The colony holds</h2>
+
+          <div class="tally" id="result-tally"></div>
+          <p class="unlock-note" id="result-unlock" hidden></p>
+
+          <div class="eyebrow" style="margin-bottom: 10px">Choose a mutation</div>
+          <div class="mutation-grid" id="mutation-grid"></div>
+          <button class="btn-ghost btn-small" id="btn-skip-mutation">Take 12 larvae instead</button>
+        </div>
+      </section>
+
+      <!-- ======================================================== GAME OVER -->
+      <section class="screen" id="screen-over">
+        <div class="result-plate">
+          <div class="eyebrow">The descent ends</div>
+          <h2 class="loss">The colony falls</h2>
+          <p class="plate-note" id="over-sub"></p>
+          <div class="tally" id="over-tally"></div>
+          <div class="title-actions" style="max-width: 320px; margin: 0 auto">
+            <button class="btn-primary" id="btn-retry">Found a new colony</button>
+            <button class="btn-ghost" id="btn-over-title">Back to title</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========================================================== VICTORY -->
+      <section class="screen" id="screen-victory">
+        <div class="result-plate">
+          <div class="eyebrow">Fifteen chambers deep</div>
+          <h2 class="win">The old queen falls</h2>
+          <p class="plate-note" id="victory-sub"></p>
+          <div class="tally" id="victory-tally"></div>
+          <div class="title-actions" style="max-width: 320px; margin: 0 auto">
+            <button class="btn-primary" id="btn-ascend">Descend again, harder</button>
+            <button class="btn-ghost" id="btn-victory-title">Back to title</button>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script type="module" src="./game.js"></script>
   </body>
 </html>

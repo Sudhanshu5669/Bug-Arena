@@ -69,6 +69,18 @@ export const DEFAULT_CONFIG = Object.freeze({
     friendlyFire: false, // reserved: species AoE hooks respect team by default
   },
 
+  // Colony-wide modifiers applied to EVERY unit a team fields — the hook the
+  // campaign layer hangs mutations and enemy difficulty on. Null means "no buff",
+  // which is what a plain sandbox battle always uses.
+  //
+  //   teamBuffs: { A: { damageDealt: 1.2, damageTaken: 0.9, speed: 1.1,
+  //                     maxHealth: 1.15, label: 'Chitin Plating' }, B: null }
+  //
+  // Applied in `_spawnAgent`, so reinforcements and summoned brood inherit it too
+  // — a buff that only covered the opening lineup would quietly decay as a colony
+  // replaced its losses.
+  teamBuffs: { A: null, B: null },
+
   // Hard ceiling on living agents. Reinforcements and species SUMMON abilities
   // (e.g. a queen's brood) both respect it, so no combination of growth can grind
   // the simulation to a halt.

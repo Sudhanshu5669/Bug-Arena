@@ -2,9 +2,9 @@
 // CanvasRenderer, and updates the HUD (score, rosters, kill feed). It contains no
 // simulation logic itself — it only renders state the engine produces.
 
-import { CanvasRenderer, FORMATS } from '/render/canvasRenderer.js';
-import { ArenaAudio, ARENA_SFX } from '/render/audio.js';
-import { LocalArena } from '/localArena.js';
+import { CanvasRenderer, FORMATS } from './render/canvasRenderer.js';
+import { ArenaAudio, ARENA_SFX } from './render/audio.js';
+import { LocalArena } from './localArena.js';
 
 const canvas = document.getElementById('arena');
 const $ = (id) => document.getElementById(id);
@@ -71,9 +71,21 @@ function onInit(init) {
 
   if (!rafStarted) {
     rafStarted = true;
+    // The reschedule MUST be unconditional. Previously `render()` was called bare
+    // and `requestAnimationFrame(loop)` followed it, so a single throw inside a
+    // frame ended the loop forever: the canvas froze while the engine, the HUD and
+    // the kill feed carried on off the snapshot stream — a confusing failure that
+    // looked like the simulation had hung when it hadn't.
+    let renderErrors = 0;
     const loop = (t) => {
-      if (renderer) renderer.render(t);
       requestAnimationFrame(loop);
+      try {
+        if (renderer) renderer.render(t);
+      } catch (err) {
+        // Log the first few and then stay quiet — a per-frame throw would other-
+        // wise flood the console and become its own performance problem.
+        if (renderErrors++ < 5) console.error('[render] frame failed:', err);
+      }
     };
     requestAnimationFrame(loop);
   }
@@ -510,7 +522,8 @@ function thumbUrl(sp) {
   if (!v || v.type !== 'sprite') return null;
   const key = v.sprite || v.spriteSheet;
   if (!key) return null;
-  return v.spriteExt === 'svg' ? `/assets/sprites/src/${key}.svg` : `/assets/sprites/${key}.png`;
+  const rel = v.spriteExt === 'svg' ? `src/${key}.svg` : `${key}.png`;
+  return new URL(`./assets/sprites/${rel}`, import.meta.url).href;
 }
 
 // Ants first, then bugs, alphabetically within each tier — so the grid reads as

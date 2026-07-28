@@ -79,6 +79,7 @@ export class BugArenaEngine extends EventEmitter {
     this.matter.gravity.x = 0;
     this.matter.gravity.y = 0;
     this.dtMs = 1000 / this.config.tickRate;
+    this.timeScale = 1; // real-time playback multiplier; see setTimeScale()
 
     this._buildWalls();
     this._buildHookApi();
@@ -319,8 +320,50 @@ export class BugArenaEngine extends EventEmitter {
     this.agents.push(agent);
     this.agentsById.set(agent.id, agent);
 
+    this._applyTeamBuff(agent);
+
     species.hooks.on_spawn?.(agent, this.api);
     return agent;
+  }
+
+  /**
+   * Stamp the colony-wide `teamBuffs` entry onto a freshly spawned agent.
+   *
+   * Health is scaled directly (it is a stat, not a multiplier, and a status cannot
+   * express "this unit has a bigger pool"); the combat multipliers ride the normal
+   * status system so they stack with abilities and comeback exactly like anything
+   * else. The status is permanent + quiet: it is a standing property of the
+   * colony, not an event worth narrating on every single spawn.
+   */
+  _applyTeamBuff(agent) {
+    const buff = this.config.teamBuffs?.[agent.team];
+    if (!buff) return;
+
+    if (buff.maxHealth && buff.maxHealth !== 1) {
+      agent.maxHealth = Math.max(1, Math.round(agent.maxHealth * buff.maxHealth));
+      agent.health = agent.maxHealth;
+      agent.stats.maxHealth = agent.maxHealth;
+    }
+
+    const dealt = buff.damageDealt ?? 1;
+    const taken = buff.damageTaken ?? 1;
+    const speed = buff.speed ?? 1;
+    if (dealt === 1 && taken === 1 && speed === 1) return;
+
+    this._applyStatus(
+      agent,
+      {
+        type: 'colony_buff',
+        label: buff.label ?? 'Colony',
+        duration: this.config.maxTicks + 100,
+        damageDealtMultiplier: dealt,
+        damageTakenMultiplier: taken,
+        speedMultiplier: speed,
+        permanent: true,
+        quiet: true,
+      },
+      agent
+    );
   }
 
   _spawnInitialFood() {
@@ -342,18 +385,32 @@ export class BugArenaEngine extends EventEmitter {
   // Loop control
   // ---------------------------------------------------------------------------
 
-  /** Start a real-time loop (used by the dev server). */
+  /** Start a real-time loop (used by the dev server and the in-page game). */
   start() {
     if (this._loopHandle || this.status === 'finished') return;
     this.status = 'running';
     this.emit('start', this.getInitPayload());
     this._loopHandle = setInterval(() => {
-      this.step();
+      // Fast-forward runs MORE simulation per wall-clock tick rather than a
+      // shorter interval: the physics substep is tied to dtMs, so shortening the
+      // interval would change how the simulation behaves, not just how fast it
+      // plays. Stepping repeatedly keeps a 3x battle identical to a 1x one.
+      const steps = Math.max(1, Math.floor(this.timeScale));
+      for (let i = 0; i < steps && this.status === 'running'; i++) this.step();
       if (this.status === 'finished') {
         this.stop();
         this.emit('end', this.summary);
       }
     }, this.dtMs);
+  }
+
+  /**
+   * Playback speed for the real-time loop, as a whole-number multiplier.
+   * Has no effect on `runToCompletion`, which is already as fast as the CPU allows.
+   */
+  setTimeScale(scale) {
+    this.timeScale = Math.max(1, Math.min(8, Math.floor(scale) || 1));
+    return this.timeScale;
   }
 
   stop() {

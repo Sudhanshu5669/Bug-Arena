@@ -10,8 +10,12 @@
 // identical to the old socket protocol, so the renderer and HUD are unchanged and
 // a networked mode could be dropped back in later without touching them.
 
-import { BugArenaEngine } from '/engine/index.js';
-import '/species/index.js'; // side-effect import: every species self-registers
+// NOTE: every path in this project is RELATIVE, never root-absolute. Portals
+// (CrazyGames, itch) and desktop wrappers serve the build from a SUBPATH, where
+// a leading "/" resolves to the host root and 404s. Relative specifiers resolve
+// against this module's own URL, so the same files work at any depth.
+import { BugArenaEngine } from './engine/index.js';
+import './species/index.js'; // side-effect import: every species self-registers
 
 /** Matches the old server's restart delay — long enough for the showreel outro. */
 const RESTART_DELAY_MS = 9000;

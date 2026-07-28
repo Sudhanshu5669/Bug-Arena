@@ -27,6 +27,7 @@ app.use(express.static(path.join(ROOT, 'public')));
 app.use('/engine', express.static(path.join(ROOT, 'engine')));
 app.use('/species', express.static(path.join(ROOT, 'species')));
 app.use('/render', express.static(path.join(ROOT, 'render')));
+app.use('/game', express.static(path.join(ROOT, 'game')));
 
 app.listen(PORT, () => {
   console.log(`\n  Bug Arena → http://localhost:${PORT}\n`);

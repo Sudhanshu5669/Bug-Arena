@@ -1,0 +1,674 @@
+/* Colony Gladiator — visual system.
+ *
+ * Direction: a field naturalist's specimen drawer. Species are pinned specimens
+ * on card stock; the run is a vertical cross-section of soil you descend. The
+ * palette is nest interior — damp earth, chitin, amber resin — rather than the
+ * usual dark-UI neutral grey, so the chrome belongs to the same world as the
+ * bugs fighting in the canvas.
+ *
+ * The two team colours (cold blue / red) are deliberately NOT in that palette:
+ * they are the arena's heraldry, set against the soil, and they must match what
+ * the canvas renderer draws or the HUD stops describing the fight.
+ *
+ * No web fonts. A portal build should render identically with no network at all.
+ */
+
+:root {
+  /* soil column, dark to light */
+  --soil: #16110d;
+  --chamber: #221a13;
+  --chamber-2: #2c221a;
+  --chitin: #3d2e21;
+  --chitin-lit: #56412e;
+
+  /* resin: the single accent, used with restraint */
+  --amber: #f0a830;
+  --amber-dim: #b47c24;
+  --amber-glow: rgba(240, 168, 48, 0.16);
+
+  /* specimen card stock */
+  --bone: #ece3d4;
+  --muted: #a3907a;
+  --faint: #6f6152;
+
+  /* arena heraldry — must track render/canvasRenderer.js */
+  --team-a: #4ea1ff;
+  --team-b: #ff5d73;
+
+  --danger: #e2564a;
+  --good: #7bd88f;
+
+  --font-plate: Georgia, 'Iowan Old Style', 'Palatino Linotype', ui-serif, serif;
+  --font-ui: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-data: ui-monospace, 'SF Mono', 'Cascadia Mono', Consolas, monospace;
+
+  --r: 3px; /* specimen cards are cut, not rounded */
+  --gutter: 16px;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden; /* the game owns the viewport; individual panes scroll */
+}
+
+body {
+  background: var(--soil);
+  color: var(--bone);
+  font-family: var(--font-ui);
+  font-size: 15px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Strata: faint horizontal banding, like a soil profile. Sits behind everything
+   and is the only ambient decoration in the whole design. */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background:
+    repeating-linear-gradient(
+      to bottom,
+      rgba(255, 255, 255, 0.012) 0 2px,
+      transparent 2px 96px
+    ),
+    radial-gradient(120% 80% at 50% 0%, rgba(240, 168, 48, 0.05), transparent 60%);
+  z-index: 0;
+}
+
+/* ---------------------------------------------------------------- typography */
+
+h1, h2, h3 {
+  font-family: var(--font-plate);
+  font-weight: 600;
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+/* Eyebrow labels double as specimen-drawer tags: they always name a category,
+   never decorate. */
+.eyebrow {
+  font-family: var(--font-data);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+
+.plate-note {
+  font-family: var(--font-plate);
+  font-style: italic;
+  color: var(--muted);
+}
+
+.num { font-family: var(--font-data); font-variant-numeric: tabular-nums; }
+
+/* -------------------------------------------------------------------- screens */
+
+#app { position: relative; z-index: 1; height: 100%; }
+
+.screen {
+  display: none;
+  height: 100%;
+  flex-direction: column;
+}
+.screen.active { display: flex; }
+
+/* --------------------------------------------------------------------- title */
+
+#screen-title {
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: var(--gutter);
+  overflow-y: auto;
+}
+
+.title-plate {
+  max-width: 460px;
+  width: 100%;
+}
+
+.title-plate h1 {
+  font-size: clamp(38px, 11vw, 62px);
+  line-height: 0.95;
+  letter-spacing: -0.03em;
+}
+.title-plate h1 em {
+  display: block;
+  font-style: normal;
+  color: var(--amber);
+}
+
+.title-rule {
+  height: 1px;
+  background: linear-gradient(to right, transparent, var(--chitin-lit), transparent);
+  margin: 22px 0;
+}
+
+.title-sub {
+  font-family: var(--font-plate);
+  font-style: italic;
+  color: var(--muted);
+  font-size: 16px;
+  margin-bottom: 28px;
+}
+
+.title-actions { display: grid; gap: 10px; }
+
+.meta-strip {
+  margin-top: 28px;
+  display: flex;
+  justify-content: center;
+  gap: 22px;
+  flex-wrap: wrap;
+  font-family: var(--font-data);
+  font-size: 11px;
+  color: var(--faint);
+}
+.meta-strip b { color: var(--muted); font-weight: 500; }
+
+/* -------------------------------------------------------------------- buttons */
+
+button {
+  font-family: var(--font-ui);
+  font-size: 14px;
+  color: var(--bone);
+  background: var(--chamber-2);
+  border: 1px solid var(--chitin);
+  border-radius: var(--r);
+  padding: 11px 16px;
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease, transform 60ms ease;
+  min-height: 44px; /* touch target floor — most portal traffic is mobile */
+}
+button:hover:not(:disabled) { background: var(--chitin); border-color: var(--chitin-lit); }
+button:active:not(:disabled) { transform: translateY(1px); }
+button:disabled { opacity: 0.4; cursor: not-allowed; }
+button:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+
+.btn-primary {
+  background: var(--amber);
+  border-color: var(--amber);
+  color: #2a1b06;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+}
+.btn-primary:hover:not(:disabled) { background: #ffbe4d; border-color: #ffbe4d; }
+
+.btn-ghost { background: transparent; }
+.btn-small { min-height: 34px; padding: 6px 11px; font-size: 13px; }
+
+/* --------------------------------------------------------------- top bar */
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px var(--gutter);
+  border-bottom: 1px solid var(--chitin);
+  background: var(--chamber);
+  flex-wrap: wrap;
+}
+
+.topbar .depth-tag {
+  font-family: var(--font-data);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--amber);
+  border: 1px solid var(--amber-dim);
+  border-radius: var(--r);
+  padding: 4px 9px;
+  white-space: nowrap;
+}
+.topbar .depth-tag.boss {
+  color: var(--danger);
+  border-color: var(--danger);
+}
+
+.topbar .foe { font-family: var(--font-plate); font-size: 16px; }
+.topbar .foe small { display: block; font-family: var(--font-data); font-size: 10px; letter-spacing: 0.14em; color: var(--faint); text-transform: uppercase; font-style: normal; }
+
+.topbar .spacer { flex: 1 1 auto; }
+
+.purse {
+  font-family: var(--font-data);
+  font-size: 18px;
+  color: var(--amber);
+  white-space: nowrap;
+}
+.purse span { font-size: 10px; letter-spacing: 0.14em; color: var(--faint); text-transform: uppercase; }
+
+/* --------------------------------------------------------------- draft screen */
+
+.draft-body {
+  flex: 1 1 auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: var(--gutter);
+  padding: var(--gutter);
+  min-height: 0;
+}
+
+.drawer { min-height: 0; display: flex; flex-direction: column; gap: 10px; }
+
+.drawer-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.drawer-head .filters { display: flex; gap: 6px; margin-left: auto; }
+.filters button.active { background: var(--chitin-lit); border-color: var(--amber-dim); color: var(--amber); }
+
+.specimens {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(158px, 1fr));
+  gap: 10px;
+  align-content: start;
+  padding-right: 4px;
+}
+
+/* The signature element: a pinned specimen on card stock. The hairline frame,
+   the italic plate note and the monospace data row are all doing the same job —
+   making a unit read as a catalogued organism with a known price, not a
+   shop item. */
+.specimen {
+  position: relative;
+  background: linear-gradient(175deg, var(--chamber-2), var(--chamber));
+  border: 1px solid var(--chitin);
+  border-radius: var(--r);
+  padding: 10px 10px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  transition: border-color 140ms ease, transform 140ms ease;
+}
+.specimen:hover { border-color: var(--chitin-lit); }
+.specimen.owned { border-color: var(--amber-dim); }
+.specimen.unaffordable { opacity: 0.5; }
+
+/* The pin: a small amber head at the top of the card, as if the specimen were
+   mounted. Purely thematic, but it is the one flourish the design gets. */
+.specimen::before {
+  content: '';
+  position: absolute;
+  top: 6px; left: 50%;
+  width: 5px; height: 5px;
+  margin-left: -2.5px;
+  border-radius: 50%;
+  background: var(--amber-dim);
+  box-shadow: 0 0 0 2px rgba(240, 168, 48, 0.12);
+}
+
+.specimen .art {
+  height: 62px;
+  display: grid;
+  place-items: center;
+  margin-top: 4px;
+}
+.specimen .art img { max-width: 54px; max-height: 56px; object-fit: contain; }
+
+.specimen .nm { font-family: var(--font-plate); font-size: 14px; line-height: 1.15; }
+
+.specimen .tier {
+  font-family: var(--font-data);
+  font-size: 9px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+.specimen .tier.champion { color: var(--amber-dim); }
+
+.specimen .ab {
+  font-family: var(--font-plate);
+  font-style: italic;
+  font-size: 12px;
+  color: var(--muted);
+  min-height: 2.4em;
+}
+
+.specimen .stats {
+  display: flex;
+  gap: 9px;
+  font-family: var(--font-data);
+  font-size: 11px;
+  color: var(--faint);
+  border-top: 1px solid var(--chitin);
+  padding-top: 6px;
+}
+.specimen .stats b { color: var(--muted); font-weight: 500; }
+
+.specimen .buy-row { display: flex; align-items: center; gap: 6px; margin-top: 2px; }
+.specimen .price {
+  font-family: var(--font-data);
+  font-size: 15px;
+  color: var(--amber);
+  flex: 1 1 auto;
+}
+.specimen .have {
+  font-family: var(--font-data);
+  font-size: 12px;
+  color: var(--bone);
+  background: var(--chitin);
+  border-radius: var(--r);
+  padding: 2px 7px;
+}
+
+/* ------------------------------------------------------------- colony panel */
+
+.colony {
+  background: var(--chamber);
+  border: 1px solid var(--chitin);
+  border-radius: var(--r);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+}
+
+.colony h3 { font-size: 17px; }
+.colony .roster-list { flex: 1 1 auto; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; min-height: 60px; }
+
+.roster-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  padding: 5px 6px;
+  border-radius: var(--r);
+  background: rgba(0, 0, 0, 0.18);
+}
+.roster-row .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+.roster-row .nm { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.roster-row .n { font-family: var(--font-data); color: var(--amber); }
+.roster-row button { min-height: 26px; padding: 0 8px; font-size: 15px; line-height: 1; }
+
+.colony .empty { color: var(--faint); font-family: var(--font-plate); font-style: italic; font-size: 13px; }
+
+.colony-foot { display: grid; gap: 8px; }
+.strength {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--font-data);
+  font-size: 12px;
+  color: var(--faint);
+  border-top: 1px solid var(--chitin);
+  padding-top: 8px;
+}
+.strength b { color: var(--bone); font-weight: 500; }
+
+/* Enemy strength readout: the difficulty dial is one legible number, and the
+   player is shown it. Hiding it would only make losses feel arbitrary. */
+.scout {
+  font-size: 12px;
+  color: var(--muted);
+  background: rgba(0, 0, 0, 0.22);
+  border-left: 2px solid var(--chitin-lit);
+  padding: 7px 9px;
+  border-radius: 0 var(--r) var(--r) 0;
+}
+.scout b { color: var(--bone); }
+
+.mutation-chips { display: flex; flex-wrap: wrap; gap: 5px; }
+.chip {
+  font-family: var(--font-data);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  color: var(--amber);
+  border: 1px solid var(--amber-dim);
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+
+/* -------------------------------------------------------------- battle screen */
+
+#screen-battle { background: #0a0806; }
+/* The arena is absolutely positioned inside the stage rather than centred by a
+ * grid. A percentage max-height only resolves against a parent with a DEFINITE
+ * height, and `flex: 1 1 auto` does not give one — so the 1280x720 canvas
+ * ignored `max-height: 100%`, overflowed, and covered the controls below it.
+ * Insetting it gives a definite box, and object-fit keeps the 16:9 letterboxed
+ * inside whatever shape that box ends up. */
+.stage {
+  flex: 1 1 auto;
+  position: relative;
+  min-height: 0;
+}
+#arena {
+  position: absolute;
+  inset: 8px;
+  width: calc(100% - 16px);
+  height: calc(100% - 16px);
+  object-fit: contain;
+  border-radius: var(--r);
+  background: #0a0806;
+}
+
+.scorebar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px var(--gutter);
+  background: var(--chamber);
+  border-bottom: 1px solid var(--chitin);
+  font-family: var(--font-data);
+  font-size: 13px;
+}
+.scorebar .a { color: var(--team-a); }
+.scorebar .b { color: var(--team-b); }
+.scorebar .track {
+  flex: 1 1 auto;
+  height: 6px;
+  background: var(--team-b);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.scorebar .track i { display: block; height: 100%; background: var(--team-a); transition: width 220ms ease; }
+
+.battle-foot {
+  display: flex;
+  gap: 8px;
+  padding: 8px var(--gutter);
+  border-top: 1px solid var(--chitin);
+  background: var(--chamber);
+  align-items: center;
+}
+.battle-foot .spacer { flex: 1 1 auto; }
+
+/* --------------------------------------------------------------- result screen */
+
+#screen-result, #screen-over, #screen-victory { align-items: center; justify-content: center; padding: var(--gutter); overflow-y: auto; }
+
+.result-plate { max-width: 720px; width: 100%; text-align: center; }
+.result-plate h2 { font-size: clamp(28px, 7vw, 40px); }
+.result-plate h2.win { color: var(--good); }
+.result-plate h2.loss { color: var(--danger); }
+
+.tally {
+  display: flex;
+  justify-content: center;
+  gap: 26px;
+  flex-wrap: wrap;
+  margin: 18px 0 24px;
+  font-family: var(--font-data);
+}
+.tally div { text-align: center; }
+.tally .v { font-size: 24px; color: var(--bone); display: block; }
+.tally .k { font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--faint); }
+.tally .v.gain { color: var(--amber); }
+.tally .v.lost { color: var(--danger); }
+
+.mutation-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; margin-bottom: 16px; }
+
+.mutation {
+  background: linear-gradient(175deg, var(--chamber-2), var(--chamber));
+  border: 1px solid var(--chitin);
+  border-radius: var(--r);
+  padding: 16px 14px;
+  cursor: pointer;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  min-height: 0;
+}
+.mutation:hover { border-color: var(--amber-dim); background: var(--chamber-2); }
+.mutation .mn { font-family: var(--font-plate); font-size: 17px; color: var(--amber); }
+.mutation .mt { font-size: 13px; color: var(--muted); line-height: 1.45; }
+.mutation .rare {
+  font-family: var(--font-data); font-size: 9px; letter-spacing: 0.16em;
+  text-transform: uppercase; color: var(--danger);
+}
+
+.unlock-note {
+  font-family: var(--font-plate);
+  font-style: italic;
+  color: var(--good);
+  margin-bottom: 14px;
+}
+
+/* ------------------------------------------------------- the descent (signature) */
+
+/* A vertical cross-section of the nest: fifteen chambers, dug downward. This
+   replaces a progress bar because depth is literally the thing being measured —
+   the marker moves down through soil, boss chambers are wider, and cleared
+   chambers stay lit behind you. */
+.descent {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 6px;
+  background: rgba(0, 0, 0, 0.22);
+  border: 1px solid var(--chitin);
+  border-radius: var(--r);
+}
+.descent .rung {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-data);
+  font-size: 10px;
+  color: var(--faint);
+  padding: 1px 4px;
+}
+.descent .rung i {
+  display: block;
+  height: 3px;
+  flex: 1 1 auto;
+  background: var(--chitin);
+  border-radius: 999px;
+}
+.descent .rung.done i { background: var(--amber-dim); }
+.descent .rung.now i { background: var(--amber); box-shadow: 0 0 8px var(--amber-glow); }
+.descent .rung.now { color: var(--amber); }
+.descent .rung.boss i { height: 5px; }
+.descent .rung.boss { color: var(--danger); }
+.descent .rung.boss.done i { background: var(--danger); opacity: 0.6; }
+
+/* ------------------------------------------------------------------- overlays */
+
+.veil {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(12, 9, 6, 0.82);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 260ms ease;
+  z-index: 5;
+}
+.veil.show { opacity: 1; pointer-events: auto; }
+.veil .inner { text-align: center; padding: var(--gutter); }
+.veil h2 { font-size: clamp(26px, 7vw, 38px); }
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 22px;
+  transform: translateX(-50%) translateY(12px);
+  background: var(--chamber-2);
+  border: 1px solid var(--chitin-lit);
+  border-radius: var(--r);
+  padding: 9px 15px;
+  font-size: 13px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 200ms ease, transform 200ms ease;
+  z-index: 40;
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* -------------------------------------------------------------- loading gate */
+
+#boot {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: var(--soil);
+  z-index: 100;
+  transition: opacity 320ms ease;
+}
+#boot.gone { opacity: 0; pointer-events: none; }
+#boot .inner { text-align: center; }
+#boot .bar { width: 190px; height: 2px; background: var(--chitin); margin: 16px auto 0; border-radius: 999px; overflow: hidden; }
+#boot .bar i { display: block; height: 100%; width: 0%; background: var(--amber); transition: width 200ms ease; }
+
+/* ---------------------------------------------------------------- responsive */
+
+/* Below 900px the sidebar cannot hold a readable roster next to the drawer, so
+   the colony becomes a sheet pinned to the bottom of the screen — thumb-reachable,
+   which is where it needs to be on a phone anyway. */
+@media (max-width: 900px) {
+  .draft-body {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) auto;
+    padding: 10px;
+    gap: 10px;
+  }
+  /* Bound the ROSTER LIST, not the panel. The footer holds the only button that
+     starts a fight, so it must never be what gets pushed off a short screen —
+     and capping the panel does exactly that once the scout report wraps to two
+     lines. Capping the list instead makes the panel's height header + a fixed
+     scroll area + footer, which is bounded and always includes the button. */
+  .colony {
+    height: auto;
+    max-height: 52vh;
+    position: relative;
+  }
+  .colony .roster-list { max-height: 92px; flex: 0 1 auto; }
+  .specimens { grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 8px; }
+  .specimen .art { height: 48px; }
+  .specimen .art img { max-width: 42px; max-height: 44px; }
+  .topbar { padding: 8px 10px; gap: 8px; }
+  .topbar .foe { font-size: 14px; }
+  :root { --gutter: 10px; }
+}
+
+@media (max-width: 560px) {
+  body { font-size: 14px; }
+  .tally { gap: 16px; }
+  .mutation-grid { grid-template-columns: 1fr; }
+  /* Two columns rather than three on a phone. Three fits, but only by dropping
+     the ability line — and which power a unit has is the main thing a draft
+     decision turns on, so the column is what gives way, not the information. */
+  .specimens { grid-template-columns: repeat(auto-fill, minmax(148px, 1fr)); }
+  .specimen .stats { font-size: 10px; gap: 6px; }
+  .specimen .ab { font-size: 11px; min-height: 2.2em; }
+}
+
+/* Landscape phones have almost no vertical room; give the arena all of it. */
+@media (max-height: 480px) and (orientation: landscape) {
+  .colony { max-height: 38vh; }
+  .scorebar, .battle-foot { padding-top: 5px; padding-bottom: 5px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
+}

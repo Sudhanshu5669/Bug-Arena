@@ -28,6 +28,7 @@ const COPIES = [
   { from: 'engine', to: 'engine' },
   { from: 'species', to: 'species' },
   { from: 'render', to: 'render' },
+  { from: 'game', to: 'game' }, // run/draft/economy layer (the game on top of the sim)
 ];
 
 async function build() {
