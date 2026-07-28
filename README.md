@@ -207,7 +207,7 @@ visitor simulates their own battles locally.
 **Every path in this project is relative, and must stay that way.** Portals serve
 a game from a subpath like `/games/<slug>/`, where a leading `/` resolves to the
 portal's root and 404s. `npm run serve:portal` exists to catch that: it mounts
-the build at `/games/bug-arena/` and serves *nothing* at the root, so an absolute
+the build at `/games/colony-gladiator/` and serves *nothing* at the root, so an absolute
 path fails there instead of silently working on a normal dev server. Module code
 resolves assets via `new URL(..., import.meta.url)` rather than bare relative
 strings, because an `img.src` resolves against the document, not the module.

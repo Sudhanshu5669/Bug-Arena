@@ -6,7 +6,7 @@
 // from the root is therefore NOT a valid test of a portal build.
 //
 //   npm run build && npm run serve:portal
-//   -> http://localhost:4000/games/bug-arena/
+//   -> http://localhost:4000/games/colony-gladiator/
 //
 // If the game loads there, it will load on a portal.
 
@@ -17,7 +17,7 @@ import express from 'express';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DIST = path.resolve(__dirname, '..', 'dist');
 const PORT = process.env.PORT || 4000;
-const MOUNT = '/games/bug-arena';
+const MOUNT = '/games/colony-gladiator';
 
 const app = express();
 
