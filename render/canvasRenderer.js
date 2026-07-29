@@ -22,9 +22,13 @@
 import { drawAgent, SpriteCache } from './rendererAbstraction.js';
 import { preloadSprites } from './spriteLoader.js';
 
+// Team colours are a shared token (--team-a / --team-b in styles/tokens.css).
+// Chroma is pulled down ~20% from the old arcade-neon pair so the rings sit
+// inside torchlight instead of glowing against it. Any change here must be made
+// in tokens.css at the same time.
 const TEAM = {
-  A: { ring: '#4ea1ff', glow: 'rgba(78,161,255,0.55)' },
-  B: { ring: '#ff5d73', glow: 'rgba(255,93,115,0.55)' },
+  A: { ring: '#58a4e8', glow: 'rgba(88,164,232,0.55)' },
+  B: { ring: '#e85f6e', glow: 'rgba(232,95,110,0.55)' },
 };
 const STATUS_COLOR = {
   burn: '#ff7a2c',

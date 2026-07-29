@@ -1,230 +1,245 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
   <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Bug Arena — Live Preview</title>
-    <style>
-      :root {
-        --bg: #0b0e14;
-        --panel: #141924;
-        --panel-2: #1b2130;
-        --line: #262d3d;
-        --text: #e6e9ef;
-        --muted: #8b93a7;
-        --a: #4ea1ff;
-        --b: #ff5d73;
-        --accent: #7bd88f;
-      }
-      * { box-sizing: border-box; }
-      body {
-        margin: 0;
-        background: var(--bg);
-        color: var(--text);
-        font: 14px/1.5 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-      }
-      .wrap {
-        display: grid;
-        grid-template-columns: minmax(0, 1fr) 320px;
-        gap: 16px;
-        max-width: 1360px;
-        margin: 0 auto;
-        padding: 16px;
-      }
-      header {
-        grid-column: 1 / -1;
-        display: flex;
-        align-items: baseline;
-        gap: 12px;
-      }
-      header h1 { margin: 0; font-size: 20px; letter-spacing: 0.3px; }
-      header .sub { color: var(--muted); font-size: 13px; }
-      .stage {
-        position: relative;
-        background: var(--panel);
-        border: 1px solid var(--line);
-        border-radius: 12px;
-        padding: 12px;
-      }
-      canvas {
-        width: 100%;
-        height: auto;
-        aspect-ratio: 16 / 9;
-        display: block;
-        border-radius: 8px;
-        background: #0a0806;
-      }
-      .overlay {
-        position: absolute;
-        inset: 12px;
-        display: none;
-        align-items: center;
-        justify-content: center;
-        flex-direction: column;
-        gap: 8px;
-        background: rgba(6, 8, 12, 0.82);
-        border-radius: 8px;
-        text-align: center;
-      }
-      .overlay.show { display: flex; }
-      .overlay h2 { margin: 0; font-size: 28px; }
-      .overlay p { margin: 0; color: var(--muted); }
-      .side { display: flex; flex-direction: column; gap: 12px; }
-      .card {
-        background: var(--panel);
-        border: 1px solid var(--line);
-        border-radius: 12px;
-        padding: 12px 14px;
-      }
-      .card h3 {
-        margin: 0 0 10px;
-        font-size: 12px;
-        text-transform: uppercase;
-        letter-spacing: 0.8px;
-        color: var(--muted);
-      }
-      .scorebar { display: flex; align-items: center; gap: 10px; }
-      .scorebar .n { font-size: 26px; font-weight: 700; min-width: 34px; text-align: center; }
-      .scorebar .n.a { color: var(--a); }
-      .scorebar .n.b { color: var(--b); }
-      .bar { flex: 1; height: 10px; border-radius: 6px; overflow: hidden; background: var(--b); display: flex; }
-      .bar > i { display: block; height: 100%; background: var(--a); transition: width 0.2s; }
-      .meta { display: flex; justify-content: space-between; color: var(--muted); font-size: 12px; margin-top: 8px; }
-      .roster { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-      .roster .team-col h4 { margin: 0 0 6px; font-size: 12px; }
-      .roster .team-col.a h4 { color: var(--a); }
-      .roster .team-col.b h4 { color: var(--b); }
-      .sp-row { display: flex; align-items: center; gap: 6px; font-size: 12px; margin-bottom: 3px; }
-      .dot { width: 10px; height: 10px; border-radius: 50%; flex: none; border: 1px solid rgba(0,0,0,0.4); }
-      .sp-row .cnt { margin-left: auto; color: var(--muted); font-variant-numeric: tabular-nums; }
-      .feed { max-height: 260px; overflow-y: auto; display: flex; flex-direction: column; gap: 3px; }
-      .feed .line { font-size: 12px; color: var(--muted); }
-      .feed .line b { color: var(--text); font-weight: 600; }
-      .controls { display: flex; flex-wrap: wrap; gap: 8px; }
-      button {
-        background: var(--panel-2);
-        color: var(--text);
-        border: 1px solid var(--line);
-        border-radius: 8px;
-        padding: 8px 12px;
-        font-size: 13px;
-        cursor: pointer;
-      }
-      button:hover { border-color: #3a445c; }
-      button.primary { background: var(--accent); color: #06210f; border-color: transparent; font-weight: 600; }
-      .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
-      .seg button { border: none; border-radius: 0; }
-      .seg button.active { background: var(--a); color: #04121f; }
-      .status-pill { font-size: 11px; color: var(--muted); }
-
-      /* --- Fight builder --- */
-      .builder { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-      .bteam h4 { margin: 0 0 6px; font-size: 12px; }
-      .bteam h4.a { color: var(--a); }
-      .bteam h4.b { color: var(--b); }
-      .build-list { display: flex; flex-direction: column; gap: 4px; }
-      .build-row { display: flex; align-items: center; gap: 6px; font-size: 12px; opacity: 0.55; }
-      .build-row.has { opacity: 1; }
-      .build-row .bname { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-      .stepper { display: inline-flex; align-items: center; gap: 3px; }
-      .stepper button {
-        padding: 0 7px; font-size: 14px; line-height: 1.5; border-radius: 6px;
-        background: var(--panel-2); min-width: 22px;
-      }
-      .stepper .bcount { min-width: 16px; text-align: center; font-variant-numeric: tabular-nums; }
-      .builder-foot { display: flex; align-items: center; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
-      .seed-field { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 5px; }
-      .seed-field input {
-        width: 78px; background: var(--panel-2); color: var(--text);
-        border: 1px solid var(--line); border-radius: 6px; padding: 5px 7px; font: inherit;
-      }
-      .build-hint { font-size: 11px; color: var(--b); margin-top: 6px; min-height: 14px; }
-
-      @media (max-width: 900px) { .wrap { grid-template-columns: 1fr; } }
-    </style>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#120d09" />
+    <meta
+      name="description"
+      content="Colony Gladiator — draft a colony, arrange it on the sand, and fight thirty chambers deep."
+    />
+    <title>Colony Gladiator</title>
+    <link rel="stylesheet" href="/styles/tokens.css" />
+    <link rel="stylesheet" href="/styles/components.css" />
+    <link rel="stylesheet" href="/styles/screens.css" />
   </head>
   <body>
-    <div class="wrap">
-      <header>
-        <h1>🐛 Bug Arena</h1>
-        <span class="sub">live simulation preview — engine runs headless in Node, this is just a renderer</span>
-      </header>
-
-      <div class="stage">
-        <canvas id="arena" width="1280" height="720"></canvas>
-        <div class="overlay" id="overlay">
-          <h2 id="overlay-title">Battle Over</h2>
-          <p id="overlay-sub"></p>
-        </div>
-      </div>
-
-      <div class="side">
-        <div class="card">
-          <h3>Survivors</h3>
-          <div class="scorebar">
-            <span class="n a" id="score-a">0</span>
-            <span class="bar"><i id="bar-a" style="width: 50%"></i></span>
-            <span class="n b" id="score-b">0</span>
-          </div>
-          <div class="meta">
-            <span id="meta-time">0.0s</span>
-            <span class="status-pill" id="meta-status">connecting…</span>
-            <span id="meta-mode">—</span>
-          </div>
-        </div>
-
-        <div class="card">
-          <h3>Rosters</h3>
-          <div class="roster">
-            <div class="team-col a"><h4>Team A</h4><div id="roster-a"></div></div>
-            <div class="team-col b"><h4>Team B</h4><div id="roster-b"></div></div>
-          </div>
-        </div>
-
-        <div class="card">
-          <h3>Abilities <span style="text-transform:none;letter-spacing:0;color:#5c6377">(debug — cooldowns)</span></h3>
-          <div id="abilities"></div>
-        </div>
-
-        <div class="card">
-          <h3>Event Feed</h3>
-          <div class="feed" id="feed"></div>
-        </div>
-
-        <div class="card">
-          <h3>Controls</h3>
-          <div class="controls">
-            <button class="primary" id="btn-new">New Battle (random)</button>
-            <span class="seg">
-              <button id="mode-agg">Aggressive</button>
-              <button id="mode-pass" class="active">Passive</button>
-            </span>
-          </div>
-          <div class="meta"><span id="meta-seed">seed —</span></div>
-        </div>
-
-        <div class="card">
-          <h3>Build a Fight</h3>
-          <div class="builder">
-            <div class="bteam">
-              <h4 class="a">Team A</h4>
-              <div id="build-a" class="build-list"></div>
-            </div>
-            <div class="bteam">
-              <h4 class="b">Team B</h4>
-              <div id="build-b" class="build-list"></div>
-            </div>
-          </div>
-          <div class="builder-foot">
-            <label class="seed-field">Seed <input id="build-seed" type="text" inputmode="numeric" placeholder="random" /></label>
-            <button class="primary" id="btn-simulate">Simulate ▶</button>
-            <button id="btn-clear-build">Clear</button>
-          </div>
-          <div class="build-hint" id="build-hint"></div>
-        </div>
-      </div>
+    <!-- Boot gate: ink-0, wordmark, one bar. Nothing else — a portal judges this
+         on first paint, not decoration. -->
+    <div id="boot">
+      <div class="mark">Colony<br /><span class="lit">Gladiator</span></div>
+      <div id="boot-bar" role="progressbar" aria-label="Loading"><i></i></div>
     </div>
 
-    <script type="module" src="/client.js"></script>
+    <main id="app">
+      <!-- ============================ TITLE ============================ -->
+      <section id="screen-title" class="screen strata" aria-label="Title">
+        <div class="grain"></div>
+        <div class="torches"></div>
+        <div class="vignette"></div>
+        <div class="pennant is-a"></div>
+        <div class="pennant is-b"></div>
+
+        <div class="brand">
+          <div class="eyebrow">Formicarium · Specimen Trials</div>
+          <h1 class="wordmark">Colony<br /><span class="lit">Gladiator</span></h1>
+          <div class="ornament" aria-hidden="true">
+            <span id="orn-a"></span><span class="rule"></span><span id="orn-sword"></span
+            ><span class="rule"></span><span id="orn-b"></span>
+          </div>
+          <p class="tagline">
+            Draft a colony, arrange it on the sand, and fight thirty chambers deep. Every specimen
+            you beat is a specimen you keep.
+          </p>
+          <div class="stat-strip" id="title-stats"></div>
+        </div>
+
+        <div class="modes">
+          <button class="btn btn-primary mode is-campaign" id="mode-campaign">
+            <span class="glyph" id="camp-glyph"></span>
+            <span style="display: flex; flex-direction: column; gap: 2px; align-items: flex-start">
+              <span class="t">Campaign</span>
+              <span class="s" id="camp-sub">Level 1 · The Feeding Line</span>
+            </span>
+          </button>
+          <button class="btn mode" id="mode-maker">
+            <span class="t">Battle Maker</span>
+            <span class="s" id="maker-sub">2 specimens acquired</span>
+          </button>
+          <button class="btn mode" id="mode-hatchery">
+            <span class="t">Hatchery</span>
+            <span class="s" id="hatch-sub">0 royal jelly</span>
+          </button>
+          <button class="btn mode" id="mode-descent">
+            <span class="t">Endless Descent</span>
+            <span class="s" id="descent-sub">Fifteen chambers, one life</span>
+          </button>
+          <button class="btn-link" id="mode-sandbox">Open the free sandbox</button>
+          <!-- Always reserves its 20px so the layout never jumps. -->
+          <div id="title-warning"></div>
+        </div>
+      </section>
+
+      <!-- ========================== CAMPAIGN =========================== -->
+      <section id="screen-campaign" class="screen" aria-label="The Descent">
+        <header class="topbar">
+          <button class="btn btn-icon" data-back aria-label="Back to title"></button>
+          <div class="titles"><div class="t" style="font-size: 20px">The Descent</div></div>
+          <div class="chips" id="camp-chips"></div>
+          <button class="btn btn-primary" id="camp-continue" style="height: 44px; padding: 0 16px">
+            Continue
+          </button>
+        </header>
+        <div class="fade-host">
+          <div id="camp-scroll" class="scroll-y" data-scroll>
+            <div id="camp-path"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- =========================== DEPLOY ============================ -->
+      <section id="screen-deploy" class="screen" aria-label="Deploy">
+        <header class="topbar">
+          <button class="btn btn-icon" data-back aria-label="Back"></button>
+          <div class="titles">
+            <div class="t" id="deploy-title">1. The Feeding Line</div>
+            <div class="s" id="deploy-sub">Arrange your colony, then send them in.</div>
+          </div>
+          <div class="chips">
+            <div class="chip"><span class="k">Larvae</span><span class="v is-amber" id="deploy-larvae">0</span></div>
+            <div class="chip"><span class="k">Units</span><span class="v" id="deploy-units">0/0</span></div>
+          </div>
+        </header>
+
+        <div id="deploy-body">
+          <div id="deploy-left">
+            <div class="canvas-well">
+              <canvas id="sand" width="960" height="600" aria-label="The sand — drag specimens into your zone"></canvas>
+            </div>
+            <div class="tools">
+              <button class="btn" id="deploy-tidy" style="height: 44px; padding: 0 14px; font-size: 13px">
+                Tidy formation
+              </button>
+              <button class="btn" id="deploy-clear" style="height: 44px; padding: 0 14px; font-size: 13px; color: var(--muted)">
+                Clear
+              </button>
+              <button class="btn btn-primary spacer" id="deploy-fight" disabled>
+                <span class="glyph" id="fight-glyph"></span>Start the fight
+              </button>
+            </div>
+          </div>
+
+          <aside id="deploy-panel">
+            <div class="foe-card" id="deploy-enemy">
+              <div class="head"><span class="glyph" id="foe-glyph"></span>Opposition</div>
+              <div class="summary"></div>
+              <div class="rows"></div>
+            </div>
+            <div class="tray-bar">
+              <button class="filter-pill is-on" data-filter="all">All</button>
+              <button class="filter-pill" data-filter="soldier">Ants</button>
+              <button class="filter-pill" data-filter="champion">Bugs</button>
+              <span class="hint">Drag onto the sand, or tap a card then tap the sand.</span>
+            </div>
+            <div id="deploy-tray-host" class="fade-host is-horizontal">
+              <div class="scroll-x" data-scroll>
+                <div id="deploy-tray"></div>
+              </div>
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      <!-- =========================== BATTLE ============================ -->
+      <section id="screen-battle" class="screen" aria-label="Battle">
+        <div class="score-bar">
+          <span class="n is-a" id="score-a">0</span>
+          <span class="score-track">
+            <span class="fill-a" id="score-fill" style="width: 50%"></span>
+            <span class="fill-b"></span>
+          </span>
+          <span class="n is-b" id="score-b">0</span>
+          <span class="clock" id="battle-clock">0.0s</span>
+        </div>
+        <div id="battle-stage">
+          <div id="battle-frame">
+            <canvas id="arena" width="1280" height="720"></canvas>
+            <div id="battle-veil">
+              <div class="veil-title" id="veil-title"></div>
+              <div class="veil-sub" id="veil-sub"></div>
+            </div>
+          </div>
+        </div>
+        <div class="battle-foot">
+          <span class="lv-name" id="battle-level">—</span>
+          <button class="btn is-collapsible" id="battle-speed">
+            <span class="glyph-only" id="speed-glyph"></span><span class="label-full">Speed ×1</span>
+          </button>
+          <button class="btn is-collapsible" id="battle-sound">
+            <span class="glyph-only" id="sound-glyph"></span><span class="label-full">Sound on</span>
+          </button>
+          <button class="btn" id="battle-skip">Skip to result</button>
+        </div>
+      </section>
+
+      <!-- =========================== RESULT ============================ -->
+      <section id="screen-result" class="screen strata beat" aria-label="Level result">
+        <div class="top-glow" id="result-glow"></div>
+        <div class="vignette"></div>
+        <div class="col" id="result-col"></div>
+      </section>
+
+      <!-- ========================== HATCHERY =========================== -->
+      <section id="screen-hatchery" class="screen" aria-label="The Hatchery">
+        <header class="topbar">
+          <button class="btn btn-icon" data-back aria-label="Back to title"></button>
+          <div class="titles">
+            <div class="t" style="font-size: 20px">The Hatchery</div>
+            <div class="s" id="hatchery-sub">Royal jelly comes from winning campaign levels.</div>
+          </div>
+          <div class="chip" style="padding: 6px 13px">
+            <span class="glyph" id="jelly-glyph" style="width: 13px; height: 13px; color: var(--amber)"></span>
+            <span class="v is-amber" id="hatchery-jelly" style="font-size: 14px">0</span>
+          </div>
+        </header>
+        <div class="fade-host">
+          <div id="shop-grid" class="scroll-y" data-scroll></div>
+        </div>
+      </section>
+
+      <!-- =========================== DRAFT ============================= -->
+      <section id="screen-draft" class="screen" aria-label="Draft">
+        <header class="topbar">
+          <button class="btn btn-icon" data-back aria-label="Back"></button>
+          <div class="titles">
+            <div class="t" id="draft-title">Chamber 1</div>
+            <div class="s" id="draft-sub">Next: <strong style="color: var(--team-b)">—</strong></div>
+          </div>
+          <div class="chip"><span class="k">Larvae</span><span class="v is-amber" id="draft-larvae">0</span></div>
+        </header>
+        <div id="draft-body">
+          <div class="fade-host is-drawer">
+            <div id="draft-drawer" class="scroll-y" data-scroll></div>
+          </div>
+          <aside id="draft-panel">
+            <div class="panel-label">Your colony</div>
+            <div id="draft-roster" style="display: flex; flex-direction: column; gap: 5px"></div>
+            <div style="display: flex; gap: 8px">
+              <div class="readout"><div class="k">Units</div><div class="v" id="draft-units">0</div></div>
+              <div class="readout">
+                <div class="k">Strength</div>
+                <div class="v is-amber" id="draft-strength" style="color: var(--amber)">0</div>
+              </div>
+            </div>
+            <div class="scout" id="draft-scout"></div>
+            <div class="mut-chips" id="draft-muts"></div>
+            <button class="btn btn-primary" id="draft-send">
+              <span class="glyph" id="send-glyph"></span>Send them in
+            </button>
+            <button class="btn-link is-danger" id="draft-abandon">Abandon run</button>
+          </aside>
+        </div>
+      </section>
+
+      <!-- ======================= DESCENT BEATS ========================= -->
+      <!-- Mutation reward, game over and victory all share the result column. -->
+      <section id="screen-beat" class="screen strata beat" aria-label="Run">
+        <div class="top-glow" id="beat-glow"></div>
+        <div class="vignette"></div>
+        <div class="col" id="beat-col"></div>
+      </section>
+    </main>
+
+    <script type="module" src="/game/app.js"></script>
   </body>
 </html>

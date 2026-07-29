@@ -79,6 +79,7 @@ export class BugArenaEngine extends EventEmitter {
     this.matter.gravity.x = 0;
     this.matter.gravity.y = 0;
     this.dtMs = 1000 / this.config.tickRate;
+    this._speed = 1; // playback multiplier for start(); never affects the sim
 
     this._buildWalls();
     this._buildHookApi();
@@ -296,7 +297,30 @@ export class BugArenaEngine extends EventEmitter {
         this.stop();
         this.emit('end', this.summary);
       }
-    }, this.dtMs);
+    }, this.dtMs / this._speed);
+  }
+
+  /**
+   * Change how fast the real-time loop plays back, without touching the
+   * simulation. Only the wall-clock interval between ticks changes — tick count,
+   * RNG draws and physics substeps are identical at any speed, so a battle
+   * watched at ×4 resolves exactly as it would at ×1.
+   * @param {number} multiplier - e.g. 1, 2, 4.
+   */
+  setSpeed(multiplier) {
+    this._speed = Math.max(0.25, Math.min(8, Number(multiplier) || 1));
+    if (this._loopHandle) {
+      this.stop();
+      this.status = 'running';
+      this._loopHandle = setInterval(() => {
+        this.step();
+        if (this.status === 'finished') {
+          this.stop();
+          this.emit('end', this.summary);
+        }
+      }, this.dtMs / this._speed);
+    }
+    return this._speed;
   }
 
   stop() {

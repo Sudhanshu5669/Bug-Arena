@@ -1,0 +1,598 @@
+/* Colony Gladiator — component inventory (UI spec 07).
+ *
+ * One slab mechanic underpins everything: fill = vertical gradient ink-3 → ink-2,
+ * 2px --slab-edge border, top bevel light, bottom lip. Hover lightens the
+ * gradient one step. Active removes the lip and translates down 2px over
+ * --dur-tap. Every tap in the game physically sinks; there are no one-off values.
+ */
+
+/* --- Glyphs ---------------------------------------------------------------
+ * Every ⚔/★/🍯/🜙/⚑/☠ in the game ships as a tiny inline SVG rather than an
+ * emoji, so it renders identically across platforms. The wrapper carries the
+ * size; the SVG always fills it. */
+.glyph {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
+}
+.glyph > svg,
+.glyph > .glyph {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* --- The slab ------------------------------------------------------------- */
+.slab {
+  background: linear-gradient(180deg, var(--ink-3), var(--ink-2));
+  border: var(--bw-slab) solid var(--slab-edge);
+  border-radius: var(--r-slab);
+  box-shadow: var(--slab-shadow);
+}
+
+/* --- Buttons -------------------------------------------------------------- */
+.btn {
+  all: unset;
+  box-sizing: border-box;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+  min-height: var(--touch);
+  padding: 0 var(--sp-4);
+  border-radius: var(--r-slab);
+  font: 600 14px/1 var(--f-ui);
+  color: var(--bone);
+  background: linear-gradient(180deg, var(--ink-3), var(--ink-2));
+  border: var(--bw-slab) solid var(--slab-edge);
+  box-shadow: var(--slab-shadow);
+  transition:
+    transform var(--dur-tap) var(--ease-out),
+    box-shadow var(--dur-tap) var(--ease-out),
+    background var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    color var(--dur-base) var(--ease-out);
+}
+.btn:hover:not(:disabled) {
+  background: linear-gradient(180deg, var(--slab-hi), var(--slab-hi-2));
+  border-color: var(--line-2);
+}
+.btn:active:not(:disabled) {
+  transform: translateY(2px);
+  box-shadow: var(--slab-shadow-down);
+  transition-timing-function: var(--ease-pop);
+}
+.btn:disabled {
+  cursor: default;
+  color: var(--line-2);
+  opacity: 0.7;
+  box-shadow: none;
+}
+
+/* Primary — the one amber action per screen. Enabling animates the fill and the
+ * lip in over --dur-base (see motion spec: "Fight button enable"). It never pulses. */
+.btn-primary {
+  background: linear-gradient(180deg, var(--pri-top), var(--pri-bot));
+  color: var(--pri-ink);
+  border-color: var(--pri-border);
+  box-shadow: var(--pri-shadow);
+  font: 700 15px/1 var(--f-ui);
+  letter-spacing: 0.02em;
+}
+.btn-primary:hover:not(:disabled) {
+  background: linear-gradient(180deg, var(--pri-top-hover), var(--pri-bot-hover));
+  border-color: var(--pri-border);
+}
+.btn-primary:active:not(:disabled) {
+  transform: translateY(3px);
+  box-shadow: var(--pri-shadow-down);
+}
+/* Disabled primary is visibly inert: flat ink, faint text, no lip, no bevel. */
+.btn-primary:disabled {
+  background: var(--ink-2);
+  color: var(--line-2);
+  border-color: var(--slab-edge);
+  box-shadow: none;
+  opacity: 1;
+  cursor: not-allowed;
+}
+
+.btn-icon {
+  width: var(--touch);
+  height: var(--touch);
+  flex: none;
+  padding: 0;
+  font-size: 16px;
+  color: var(--muted);
+  background: linear-gradient(180deg, var(--slab-hi), var(--slab-hi-2));
+}
+
+/* Text link button — 44px hit area, underlined, no slab. */
+.btn-link {
+  all: unset;
+  box-sizing: border-box;
+  cursor: pointer;
+  min-height: var(--touch);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font: 400 13px/1.45 var(--f-ui);
+  color: var(--muted);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  transition: color var(--dur-fast) var(--ease-out);
+}
+.btn-link:hover {
+  color: var(--bone);
+}
+.btn-link.is-danger {
+  color: var(--danger);
+}
+
+/* Ad-boost: a green tool, framed as a gift rather than a nag. */
+.btn-boost {
+  background: linear-gradient(180deg, #2c2b17, #232210);
+  border-color: var(--good);
+  color: var(--good);
+  font: 600 12px/1 var(--f-ui);
+}
+.btn-boost:hover:not(:disabled) {
+  background: linear-gradient(180deg, #363517, #2a2912);
+  border-color: var(--good);
+}
+
+/* Stepper − / + : a 26–30px visual square inside a 44px-equivalent hit box. */
+.step {
+  all: unset;
+  box-sizing: border-box;
+  cursor: pointer;
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--ink-1);
+  border: 1px solid var(--line-2);
+  border-radius: 6px;
+  color: var(--muted);
+  font-weight: 700;
+  transition: transform var(--dur-tap) var(--ease-out);
+}
+.step.is-add {
+  background: var(--slab-hi);
+  color: var(--bone);
+}
+.step:active:not(:disabled) {
+  transform: translateY(1px);
+}
+.step:disabled {
+  cursor: default;
+  opacity: 0.4;
+}
+.step-lg {
+  width: 30px;
+  height: 30px;
+}
+
+/* Filter pill — selected pill does not move; only fill and text crossfade. */
+.filter-pill {
+  all: unset;
+  box-sizing: border-box;
+  cursor: pointer;
+  min-height: var(--touch);
+  padding: 0 var(--sp-4);
+  display: flex;
+  align-items: center;
+  border-radius: var(--r-pill);
+  font: 600 12px/1 var(--f-ui);
+  background: var(--ink-2);
+  color: var(--muted);
+  border: var(--bw-slab) solid var(--slab-edge);
+  transition:
+    background var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    transform var(--dur-tap) var(--ease-out);
+}
+.filter-pill:active {
+  transform: translateY(1px);
+}
+.filter-pill.is-on {
+  background: var(--amber);
+  color: var(--pri-ink);
+  border-color: var(--pri-border);
+}
+
+/* --- Stat chip / counter --------------------------------------------------
+ * Sunken pill: ink-1 fill, inset shadow, t-label faint over t-num value. */
+.chip {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-1);
+  background: var(--ink-1);
+  border: 1px solid var(--slab-edge);
+  border-radius: var(--r-pill);
+  padding: 5px 11px;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.5);
+  white-space: nowrap;
+  transition: border-color var(--dur-base) var(--ease-out);
+}
+.chip .k {
+  font: 600 10px/1.2 var(--f-num);
+  letter-spacing: 0.1em;
+  color: var(--faint);
+  text-transform: uppercase;
+}
+.chip .v {
+  font: 700 13px/1.2 var(--f-num);
+  color: var(--bone);
+  transition: color var(--dur-base) var(--ease-out);
+}
+.chip .v.is-amber {
+  color: var(--amber);
+}
+/* A counter that just went up flashes good for 240ms and borders green. */
+.chip.is-positive {
+  border-color: #3d5c41;
+}
+.chip.is-positive .v {
+  color: var(--good);
+}
+
+/* A value that just changed flashes for 240ms — kept even under reduced
+ * motion, where the count-up itself is dropped but the colour cue is not. */
+.is-flash {
+  animation: value-flash 240ms var(--ease-out);
+}
+/* Brightness rather than an explicit colour, so an amber value flashes amber
+ * and a bone value flashes bone instead of both snapping to one hue. */
+@keyframes value-flash {
+  0%,
+  100% { filter: none; }
+  40% { filter: brightness(1.7); }
+}
+
+/* The "+196" ghost that floats off a counter that changed. */
+.delta-ghost {
+  position: absolute;
+  pointer-events: none;
+  font: 700 13px/1 var(--f-num);
+  color: var(--good);
+  animation: delta-float var(--dur-beat) var(--ease-out) forwards;
+}
+@keyframes delta-float {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-12px);
+  }
+}
+
+/* Title-screen stat chip: slab, not sunken, with a 3px progress underfill so
+ * progress is legible without reading. */
+.stat-chip {
+  position: relative;
+  overflow: hidden;
+  min-width: 64px;
+  padding: 7px 13px;
+  border-radius: 6px;
+  background: linear-gradient(180deg, #2c2115, #221a10);
+  border: 1px solid var(--slab-edge);
+  box-shadow: var(--bevel), 0 2px 0 rgba(0, 0, 0, 0.4);
+}
+.stat-chip .k {
+  font: 600 10px/1.2 var(--f-num);
+  letter-spacing: 0.12em;
+  color: var(--faint);
+  text-transform: uppercase;
+}
+.stat-chip .v {
+  font: 700 13px/1.2 var(--f-num);
+  color: var(--bone);
+  margin-top: 2px;
+}
+.stat-chip .fill {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--amber-deep), var(--amber));
+  transition: width var(--dur-slow) var(--ease-out);
+}
+
+/* Sunken read-out box (UNITS / STRENGTH pairs). */
+.readout {
+  flex: 1;
+  background: var(--ink-1);
+  border: 1px solid var(--slab-edge);
+  border-radius: 6px;
+  padding: 7px 10px;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+.readout .k {
+  font: 600 9px/1.2 var(--f-num);
+  letter-spacing: 0.12em;
+  color: var(--faint);
+}
+.readout .v {
+  font: 700 14px/1.2 var(--f-num);
+}
+
+/* --- Specimen roundel ----------------------------------------------------
+ * The slot the real species art sits in. Sizes: 22 roster, 24 lineup, 30 tray,
+ * 38 draft, 44 shop, 64 grant (46px art inside). */
+.roundel {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: #141009;
+  border: 1px solid var(--line-2);
+  overflow: hidden;
+}
+.roundel img,
+.roundel svg {
+  display: block;
+  width: 74%;
+  height: 74%;
+  object-fit: contain;
+}
+.roundel.is-foe {
+  background: #1a0e0c;
+  border-color: var(--team-b);
+}
+.roundel.is-ally {
+  border-color: var(--team-a);
+}
+.roundel.sz-22 { width: 22px; height: 22px; }
+.roundel.sz-24 { width: 24px; height: 24px; }
+.roundel.sz-30 { width: 30px; height: 30px; }
+.roundel.sz-38 { width: 38px; height: 38px; border-width: 2px; }
+.roundel.sz-44 { width: 44px; height: 44px; border-width: 2px; }
+.roundel.sz-64 {
+  width: 64px;
+  height: 64px;
+  border: 2px solid var(--amber);
+  background: radial-gradient(circle at 40% 35%, #241a0c, #140d05);
+  box-shadow: 0 0 18px rgba(232, 163, 61, 0.35);
+}
+
+/* --- Stamps --------------------------------------------------------------
+ * The specimen-drawer wink. Rotated, hairline-bordered, never filled. */
+.stamp {
+  flex: none;
+  font: 700 10px/1 var(--f-num);
+  letter-spacing: 0.12em;
+  border-radius: 2px;
+  padding: 5px 9px;
+  color: var(--good);
+  border: 1px solid #3d5c41;
+  transform: rotate(3deg);
+}
+.stamp.is-grant {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  font-size: 9px;
+  padding: 3px 6px;
+  color: var(--amber);
+  border-color: var(--amber-deep);
+  transform: rotate(6deg);
+  opacity: 0.85;
+}
+
+/* Tier tag: ANT muted, BUG team-a. */
+.tier-tag {
+  flex: none;
+  font: 700 9px/1 var(--f-num);
+  letter-spacing: 0.1em;
+  border: 1px solid currentColor;
+  border-radius: 2px;
+  padding: 2px 5px;
+  opacity: 0.8;
+  color: var(--muted);
+}
+.tier-tag.is-bug {
+  color: var(--team-a);
+}
+
+/* --- Star pip ------------------------------------------------------------
+ * 30px on result screens, 13px in level cards. Fill: scale 0 → 1.35 → 1 over
+ * 320ms ease-pop, colour amber-glow → amber, glow blooming 22px → 14px. Pips
+ * fire 160ms apart, the first at +400ms after the headline. */
+.stars {
+  display: flex;
+  gap: 10px;
+  font-size: 30px;
+  filter: drop-shadow(0 3px 0 rgba(0, 0, 0, 0.5));
+}
+.stars .pip {
+  color: var(--line-1);
+  line-height: 1;
+}
+.stars .pip.is-on {
+  color: var(--amber);
+  text-shadow: 0 0 14px rgba(232, 163, 61, 0.5);
+}
+.stars.is-animating .pip.is-on {
+  animation: star-pop 320ms var(--ease-pop) backwards;
+}
+.stars.is-animating .pip.is-on:nth-child(1) { animation-delay: 400ms; }
+.stars.is-animating .pip.is-on:nth-child(2) { animation-delay: 560ms; }
+.stars.is-animating .pip.is-on:nth-child(3) { animation-delay: 720ms; }
+@keyframes star-pop {
+  0% {
+    transform: scale(0);
+    color: var(--amber-glow);
+    text-shadow: 0 0 22px rgba(255, 217, 138, 0.8);
+  }
+  60% {
+    transform: scale(1.35);
+  }
+  100% {
+    transform: scale(1);
+    color: var(--amber);
+    text-shadow: 0 0 14px rgba(232, 163, 61, 0.5);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  /* Instant fill, still staggered 160ms apart. */
+  .stars.is-animating .pip.is-on {
+    animation-name: star-appear;
+  }
+  @keyframes star-appear {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+}
+
+/* Inline star row inside level cards. */
+.stars-inline {
+  font: 13px/1 var(--f-num);
+  letter-spacing: 2px;
+  color: var(--line-2);
+}
+.stars-inline.is-earned {
+  color: var(--amber);
+}
+
+/* --- Scroll, focus & empty states ---------------------------------------- */
+.scroll-y {
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-2) transparent;
+}
+.scroll-y::-webkit-scrollbar,
+.scroll-x::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.scroll-y::-webkit-scrollbar-track,
+.scroll-x::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scroll-y::-webkit-scrollbar-thumb,
+.scroll-x::-webkit-scrollbar-thumb {
+  background: var(--line-2);
+  border-radius: var(--r-pill);
+}
+
+/* 36px bottom fade whenever a panel overflows; removed at the end of the scroll
+ * (the .at-end class is toggled by ui.js). Horizontal trays fade 24px right.
+ *
+ * The fade lives on a NON-scrolling wrapper, never on the scroller itself —
+ * an absolutely positioned child of a scroll container scrolls away with the
+ * content instead of staying pinned to the edge. */
+.fade-host {
+  position: relative;
+  display: flex;
+  min-height: 0;
+  min-width: 0;
+}
+.fade-host > [data-scroll] {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  width: 100%;
+}
+.fade-host::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 36px;
+  pointer-events: none;
+  background: linear-gradient(180deg, transparent, var(--ink-1));
+  opacity: 1;
+  transition: opacity var(--dur-fast) var(--ease-out);
+}
+.fade-host.at-end::after,
+.fade-host.no-overflow::after {
+  opacity: 0;
+}
+.fade-host.is-horizontal::after {
+  left: auto;
+  top: 0;
+  bottom: 0;
+  width: 24px;
+  height: auto;
+  background: linear-gradient(90deg, transparent, var(--ink-1));
+}
+
+.scroll-x {
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+.scroll-x::-webkit-scrollbar {
+  display: none;
+}
+
+/* Empty state: centred glyph at 60% opacity over one line of faint copy. */
+.empty {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+  padding: var(--sp-4);
+  text-align: center;
+  color: var(--faint);
+}
+.empty .glyph {
+  width: 26px;
+  height: 26px;
+  opacity: 0.6;
+}
+.empty .copy {
+  font: 400 13px/1.5 var(--f-ui);
+  max-width: 26ch;
+}
+
+/* --- Toast ---------------------------------------------------------------
+ * One at a time, bottom-centre, 24px above the safe area, 2.2s hold. */
+#toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+  transform: translate(-50%, 12px);
+  z-index: 60;
+  max-width: min(90vw, 420px);
+  padding: 10px 18px;
+  border-radius: var(--r-pill);
+  background: linear-gradient(180deg, var(--ink-3), var(--ink-2));
+  border: var(--bw-slab) solid var(--slab-edge);
+  box-shadow: var(--bevel), 0 6px 16px rgba(0, 0, 0, 0.5);
+  font-size: 13px;
+  color: var(--bone);
+  text-align: center;
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    opacity var(--dur-fast) var(--ease-in),
+    transform var(--dur-fast) var(--ease-in);
+}
+#toast.is-up {
+  opacity: 1;
+  transform: translate(-50%, 0);
+  transition:
+    opacity 200ms var(--ease-out),
+    transform 200ms var(--ease-out);
+}
+#toast .team-a {
+  color: var(--team-a);
+  font-weight: 700;
+}
+#toast .team-b {
+  color: var(--team-b);
+  font-weight: 700;
+}

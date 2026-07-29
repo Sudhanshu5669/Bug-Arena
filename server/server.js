@@ -16,6 +16,7 @@ import { WebSocketServer } from 'ws';
 
 import { BugArenaEngine } from '../engine/index.js';
 import '../species/index.js'; // <-- loads + self-registers all species (engine never imports them)
+import { getCatalog } from '../species/registry.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
@@ -24,6 +25,10 @@ const PORT = process.env.PORT || 3000;
 const app = express();
 app.use(express.static(path.join(ROOT, 'public')));
 app.use('/render', express.static(path.join(ROOT, 'render'))); // client imports the shared renderer
+
+// The game front-end prices and describes specimens from the real registry
+// rather than a hardcoded list, so it needs the catalog before any battle runs.
+app.get('/api/catalog', (_req, res) => res.json(getCatalog()));
 
 // ---- Future public API would live here (NOT built for v1) -------------------
 // import { runBattle } from '../engine/index.js';
@@ -39,6 +44,10 @@ const wss = new WebSocketServer({ server });
 let engine = null;
 let lastOverrides = { mode: 'passive' }; // forage-first is the default battle feel
 let restartTimer = null;
+// The sandbox wants a lively, self-restarting preview. A campaign fight is a
+// single authored match: it must end and stay ended so the result screen can
+// read its summary. `oneShot` on the restart command picks which.
+let oneShot = false;
 
 function broadcast(message) {
   const data = JSON.stringify(message);
@@ -59,9 +68,10 @@ function startBattle(overrides = {}) {
     broadcast({ type: 'end', data: summary });
     console.log(
       `[battle] over — winner ${summary.winner} by ${summary.reason} ` +
-        `in ${summary.durationSeconds}s (seed ${summary.seed}). Auto-restarting in 5s.`
+        `in ${summary.durationSeconds}s (seed ${summary.seed}).` +
+        (oneShot ? '' : ' Auto-restarting in 5s.')
     );
-    restartTimer = setTimeout(() => startBattle(), 5000); // keep the preview lively during dev
+    if (!oneShot) restartTimer = setTimeout(() => startBattle(), 5000); // keep the preview lively during dev
   });
 
   broadcast({ type: 'init', data: engine.getInitPayload() });
@@ -86,9 +96,14 @@ wss.on('connection', (ws) => {
       return;
     }
     if (msg.cmd === 'restart') {
+      oneShot = Boolean(msg.oneShot);
       startBattle(msg.config || {});
     } else if (msg.cmd === 'setMode') {
+      oneShot = false;
       startBattle({ mode: msg.mode });
+    } else if (msg.cmd === 'speed') {
+      // Playback pacing only — the running battle is not restarted or reseeded.
+      if (engine) engine.setSpeed(msg.speed);
     }
   });
 });

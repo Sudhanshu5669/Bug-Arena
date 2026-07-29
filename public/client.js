@@ -163,7 +163,7 @@ function updateAbilityDebug(snap) {
   const sb = soldiers.filter((a) => a.team === 'B').length;
   const squadLine = `<div class="sp-row" style="opacity:0.7">
     <span>Soldiers</span>
-    <span class="cnt"><b style="color:#4ea1ff">${sa}</b> vs <b style="color:#ff5d73">${sb}</b></span>
+    <span class="cnt"><b style="color:#58a4e8">${sa}</b> vs <b style="color:#e85f6e">${sb}</b></span>
   </div>`;
   el.innerHTML = (rows || '') + squadLine;
 }
@@ -223,7 +223,7 @@ function verbFor(cause) {
 }
 
 function teamColor(team) {
-  return team === 'A' ? '#4ea1ff' : '#ff5d73';
+  return team === 'A' ? '#58a4e8' : '#e85f6e';
 }
 
 function clearFeed() {
@@ -242,7 +242,7 @@ function showOverlay(summary) {
     summary.winner === 'draw' ? 'Draw' : `Team ${summary.winner} wins`;
   $('overlay-title').textContent = title;
   $('overlay-title').style.color =
-    summary.winner === 'A' ? '#4ea1ff' : summary.winner === 'B' ? '#ff5d73' : '#e6e9ef';
+    summary.winner === 'A' ? '#58a4e8' : summary.winner === 'B' ? '#e85f6e' : '#efe6d6';
   $('overlay-sub').textContent =
     `by ${summary.reason} · ${summary.durationSeconds}s · ${summary.totalKills} kills · new battle soon…`;
   ov.classList.add('show');

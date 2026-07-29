@@ -24,7 +24,8 @@ but the code is deliberately structured so they bolt on without touching the eng
 ```bash
 npm install
 
-# Live browser preview (dev tool): open http://localhost:3000
+# Colony Gladiator (the game): open http://localhost:3000
+# The engine dev preview now lives at   http://localhost:3000/sandbox.html
 npm start
 
 # Headless — runs a full battle in Node with NO browser/canvas/DOM.
@@ -46,9 +47,48 @@ node examples/headless.js 12345 passive    # passive mode
 | `species/{fireAnt,spider,mantis}.js` | One file per species: stats + data-only visual descriptor + behaviour hooks. Self-registers on import. |
 | `render/rendererAbstraction.js` | `drawAgent(ctx, agent, visual)` switches on `visual.type` (shape today, sprite-ready). Pure canvas calls → works in browser **and** node-canvas. |
 | `render/canvasRenderer.js` | Browser scene composition (walls, food, health bars, status halos, FX). A pure snapshot subscriber. |
-| `server/server.js` | **Dev tool only.** Runs the engine and streams snapshots to the browser over WebSocket. Not the future public API. |
-| `public/` | The preview page + client (renders state; contains no simulation logic). |
+| `server/server.js` | **Dev tool only.** Runs the engine and streams snapshots to the browser over WebSocket, plus `GET /api/catalog` for the game front-end. Not the future public API. |
+| `public/index.html` + `public/game/` | **Colony Gladiator** — the game front-end (see below). Contains no simulation logic. |
+| `public/styles/` | Design tokens, components and screen layouts. |
+| `public/sandbox.html` + `public/client.js` | The engine dev preview, unchanged in behaviour. |
 | `examples/headless.js` | Proof the engine runs with no browser. |
+
+## Colony Gladiator (the game front-end)
+
+Built to the `Colony Gladiator UI Design` spec. Draft a colony, arrange it on the
+sand, and fight thirty chambers deep. It is a **pure client of this engine**:
+every fight is a real `BugArenaEngine` run on the server, driven by the lineup
+the player built and streamed back as snapshots.
+
+| Path | Responsibility |
+|------|----------------|
+| `public/styles/tokens.css` | The canonical value set: colour ramp, type scale, spacing, elevation, motion. Nothing else defines a raw value. |
+| `public/styles/components.css` | Slab buttons, pills, chips, stars, roundels, stamps, scroll/focus/empty treatments. |
+| `public/styles/screens.css` | Per-screen layout + the responsive rules. |
+| `public/game/data.js` | Campaign content, inline SVG glyphs, and the economy **derived from the species registry** — a new species file prices itself the moment it registers. |
+| `public/game/state.js` | Save/progress (localStorage, degrades gracefully when blocked). |
+| `public/game/session.js` | The live match — scratch state between "Continue" and a result. |
+| `public/game/paint.js` | The deploy-sand canvas (static layer cached offscreen). |
+| `public/game/net.js` | Catalog fetch + one-shot fights over the existing WebSocket. |
+| `public/game/ui.js` | Screen router, toast, animated counters, scroll fades. |
+| `public/game/screens/*.js` | Title, campaign, deploy, battle, result, hatchery, draft, descent beats. |
+
+**Two responsive rules, no more:** `min-aspect-ratio: 1/1` ("wide" — orientation,
+not device, drives layout) and `min-width: 1000px` ("desktop" — density only).
+844×390 and 1440×900 share the wide layout.
+
+**Balance is verified against the real engine, not eyeballed.** The larvae purse
+(1.5× the opposition's strength) and both difficulty curves were tuned by
+replaying whole campaigns and descent runs headless through `runBattle`. A
+sensible campaign lineup clears the first ten chambers almost every time and
+still loses roughly one deep chamber in four on a first attempt; Endless Descent
+runs — where losses are permanent — reach a median chamber 13 of 15. Retune by
+adjusting `levelPlan` / `descentPlan` in `public/game/data.js` and re-running a
+headless playthrough.
+
+**Team colours are one token in three places** — `--team-a` / `--team-b` in
+`tokens.css`, `TEAM` in `render/canvasRenderer.js`, and `T` in
+`public/game/paint.js`. Change them together.
 
 ## Core design guarantees
 

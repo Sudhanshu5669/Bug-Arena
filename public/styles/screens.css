@@ -1,0 +1,1365 @@
+/* Colony Gladiator — screen layouts (UI specs 02–06) and responsive rules (09).
+ *
+ * ONE breakpoint pair drives everything:
+ *   .wide     → min-aspect-ratio: 1/1   (orientation, not device, drives layout)
+ *   .desktop  → min-width: 1000px       (density only: wider panels, more columns)
+ * 844×390 and 1440×900 therefore share the wide layout.
+ *
+ * Both are applied as classes on <html> by game/ui.js so JS can branch on the
+ * same rule the CSS does; the media queries below stay the source of truth.
+ */
+
+/* --- Screen router -------------------------------------------------------
+ * Outgoing: opacity → 0, scale → 0.985 (180ms ease-in).
+ * Incoming: opacity 0 → 1, translateY 10px → 0 (220ms ease-out), overlapping by
+ * 120ms. Nothing ever slides between screens. */
+/* Pinned to the visual viewport rather than sized from it.
+ *
+ * `height: 100dvh` makes the app's height depend on the html → body → #app
+ * chain resolving correctly; if any link in that chain comes up short the
+ * screens stop short with it and the page background bands across the bottom.
+ * `position: fixed; inset: 0` takes the measurement out of the layout entirely:
+ * the app IS the viewport, at every zoom level and on every engine, with or
+ * without dvh support. Screens are absolutely positioned inside it and each
+ * region scrolls internally, so nothing here needs page scroll. */
+html,
+body {
+  overflow: hidden; /* the game never scrolls the page; every region scrolls itself */
+}
+#app {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+}
+.screen {
+  position: absolute;
+  inset: 0;
+  display: none;
+  flex-direction: column;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.screen.is-active {
+  display: flex;
+  animation: screen-in var(--dur-base) var(--ease-out);
+}
+.screen.is-leaving {
+  display: flex;
+  pointer-events: none;
+  animation: screen-out 180ms var(--ease-in) forwards;
+}
+@keyframes screen-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes screen-out {
+  from { opacity: 1; transform: none; }
+  to { opacity: 0; transform: scale(0.985); }
+}
+
+/* --- Boot gate (02) ------------------------------------------------------
+ * ink-0, no texture — a portal judges this on first-paint speed, not decoration. */
+#boot {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: var(--ink-0);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-5);
+  transition: opacity var(--dur-base) var(--ease-in);
+}
+#boot .mark {
+  text-align: center;
+  font: 700 30px/1 var(--f-display);
+}
+#boot .mark .lit {
+  color: var(--amber);
+}
+#boot-bar {
+  width: 180px;
+  height: 3px;
+  background: var(--ink-2);
+  border-radius: var(--r-pill);
+  overflow: hidden;
+}
+#boot-bar > i {
+  display: block;
+  height: 100%;
+  width: 20%;
+  background: var(--amber);
+  border-radius: var(--r-pill);
+  transition: width 300ms var(--ease-out);
+}
+#boot.gone {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* --- Shared screen chrome ------------------------------------------------ */
+.topbar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 8px 12px;
+  padding-top: calc(8px + env(safe-area-inset-top, 0px));
+  background: linear-gradient(180deg, #2c2115, #221a10);
+  border-bottom: var(--bw-slab) solid var(--slab-edge);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.45);
+  position: relative;
+  z-index: 2;
+}
+.topbar .titles {
+  min-width: 0;
+  margin-right: auto;
+}
+.topbar .titles .t {
+  font: 700 17px/1.1 var(--f-display);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.topbar .titles .s {
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.topbar .chips {
+  display: flex;
+  gap: var(--sp-2);
+  flex: none;
+}
+
+/* Torchlit page dressing shared by title / result / end-state screens. */
+/* Decoration only — this class must never touch layout.
+ *
+ * It deliberately declares no `position`. `.strata` is only ever applied
+ * alongside `.screen`, which already positions the element absolutely and so
+ * provides the containing block the .grain/.torches/.vignette layers need. A
+ * `position: relative` here carries the SAME specificity as `.screen` but sits
+ * later in the file, so it silently wins — dropping every strata screen out of
+ * its absolute fill into normal flow, where it shrinks to its content height
+ * and lets the page background band across everything below it. */
+.strata {
+  background: linear-gradient(180deg, #261c11 0%, var(--ink-1) 45%, #151009 100%);
+}
+.strata > .grain,
+.strata > .torches,
+.strata > .vignette {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.strata > .grain {
+  background: repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.12) 0 2px, transparent 2px 5px);
+  opacity: 0.35;
+}
+.strata > .torches {
+  background:
+    radial-gradient(420px 300px at 12% -4%, rgba(232, 163, 61, 0.14), transparent),
+    radial-gradient(420px 300px at 88% -4%, rgba(232, 163, 61, 0.14), transparent);
+}
+.strata > .vignette {
+  box-shadow: inset 0 0 90px rgba(0, 0, 0, 0.65);
+}
+
+/* Swallow-tail pennants hanging from the top edge at 8% / 92%. */
+.pennant {
+  position: absolute;
+  top: 0;
+  width: 34px;
+  height: 64px;
+  clip-path: polygon(0 0, 100% 0, 100% 78%, 50% 100%, 0 78%);
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+}
+.pennant.is-a {
+  left: 8%;
+  background: linear-gradient(180deg, var(--team-a), #2c5a86);
+}
+.pennant.is-b {
+  right: 8%;
+  background: linear-gradient(180deg, var(--team-b), #8a3540);
+}
+
+/* --- Title (02) ---------------------------------------------------------- */
+/* `safe center` matters here, not plain `center`. A centred flex container whose
+ * content is taller than itself pushes the overflow past its START edge, where
+ * it is unreachable by scrolling and simply gets sheared off — on a short
+ * viewport that eats the eyebrow and the top of the Campaign button. `safe`
+ * degrades to flex-start exactly when overflow would occur, so the whole screen
+ * stays scrollable to. The unprefixed `center` above it is the fallback for
+ * engines without safe alignment. */
+#screen-title {
+  align-items: center;
+  justify-content: center;
+  justify-content: safe center;
+  gap: 26px;
+  padding: var(--sp-6) 18px calc(var(--sp-4) + env(safe-area-inset-bottom, 0px));
+  overflow-y: auto;
+}
+#screen-title .brand {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  align-items: center;
+  text-align: center;
+  position: relative;
+  min-width: 0;
+}
+#screen-title .eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--amber-deep);
+  font: 600 11px/1.2 var(--f-num);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+#screen-title .eyebrow::before,
+#screen-title .eyebrow::after {
+  content: '';
+  width: 26px;
+  height: 1px;
+  background: var(--line-2);
+}
+#screen-title .wordmark {
+  filter: drop-shadow(0 3px 0 rgba(0, 0, 0, 0.55));
+  font: 700 42px/0.95 var(--f-display);
+  letter-spacing: 0.01em;
+}
+#screen-title .wordmark .lit {
+  color: var(--amber);
+  text-shadow: 0 0 26px rgba(232, 163, 61, 0.35);
+}
+#screen-title .ornament {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  color: var(--line-2);
+}
+#screen-title .ornament .rule {
+  width: 70px;
+  height: 1px;
+  background: var(--line-1);
+}
+#screen-title .tagline {
+  margin: 0;
+  font: 400 13px/1.55 var(--f-ui);
+  color: var(--muted);
+  max-width: 36ch;
+}
+#screen-title .stat-strip {
+  display: flex;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+  justify-content: center;
+}
+#screen-title .modes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  width: 100%;
+  max-width: 400px;
+  position: relative;
+}
+#screen-title .mode {
+  height: 58px;
+  justify-content: flex-start;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 0 18px;
+}
+#screen-title .mode .t {
+  font: 700 15px/1.15 var(--f-display);
+  color: var(--bone);
+}
+#screen-title .mode .s {
+  font: 600 12px/1.2 var(--f-num);
+  color: var(--muted);
+}
+/* A run in progress marks its mode with a 5px team-a left edge. */
+#screen-title .mode.is-resumable {
+  border-left: 5px solid var(--team-a);
+}
+#screen-title .mode.is-campaign {
+  height: 66px;
+  flex-direction: row;
+  align-items: center;
+  gap: 14px;
+  padding: 0 20px;
+}
+#screen-title .mode.is-campaign .glyph {
+  width: 22px;
+  height: 22px;
+  flex: none;
+  filter: drop-shadow(0 1px 0 rgba(255, 235, 190, 0.6));
+}
+#screen-title .mode.is-campaign .t {
+  font: 700 17px/1.15 var(--f-display);
+  color: var(--pri-ink);
+}
+#screen-title .mode.is-campaign .s {
+  color: var(--pri-lip);
+}
+/* The storage warning ALWAYS reserves its line so the layout never jumps. */
+#title-warning {
+  min-height: 20px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--danger);
+}
+
+/* --- Campaign — the descent (03) ----------------------------------------- */
+#screen-campaign {
+  background: var(--ink-1);
+}
+#screen-campaign > .fade-host,
+#screen-hatchery > .fade-host {
+  flex: 1;
+  min-height: 0;
+}
+#camp-scroll {
+  position: relative;
+}
+#camp-path {
+  position: relative;
+  max-width: 520px;
+  margin: 0 auto;
+  padding: 20px var(--sp-4) 60px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+/* The tunnel: one dashed shaft running the length of the descent. */
+#camp-path::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  border-left: 3px dashed var(--line-1);
+}
+.chapter-rule {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  margin: 14px 0 6px;
+  color: var(--faint);
+}
+.chapter-rule::before,
+.chapter-rule::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--line-1);
+}
+.chapter-rule span {
+  font: 600 11px/1.2 var(--f-num);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  background: var(--ink-1);
+  padding: 0 6px;
+}
+.nest-floor {
+  position: relative;
+  text-align: center;
+  color: var(--line-2);
+  font: 600 11px/1.2 var(--f-num);
+  letter-spacing: 0.2em;
+  padding-top: 10px;
+}
+.lv-slot {
+  position: relative;
+  display: flex;
+}
+.lv-slot.is-left { justify-content: flex-start; }
+.lv-slot.is-right { justify-content: flex-end; }
+
+.lv {
+  all: unset;
+  box-sizing: border-box;
+  cursor: pointer;
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  min-height: 58px;
+  width: 78%;
+  padding: 8px 14px;
+  border-radius: var(--r-slab);
+  background: linear-gradient(180deg, var(--ink-3), #241b10);
+  border: var(--bw-slab) solid var(--slab-edge);
+  box-shadow: var(--slab-shadow);
+  transition:
+    transform var(--dur-tap) var(--ease-out),
+    border-color 260ms var(--ease-out),
+    box-shadow 260ms var(--ease-out),
+    opacity var(--dur-slow) var(--ease-out);
+}
+.lv:active { transform: translateY(2px); }
+.lv .num {
+  width: 38px;
+  height: 38px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--ink-1);
+  border: var(--bw-slab) solid var(--line-2);
+  font: 700 15px/1 var(--f-num);
+  color: var(--muted);
+}
+.lv .name {
+  min-width: 0;
+  flex: 1;
+  font: 700 15px/1.15 var(--f-display);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.lv.is-cleared .num {
+  background: var(--amber);
+  border-color: var(--pri-border);
+  color: var(--pri-ink);
+}
+.lv.is-locked {
+  background: #1e1710;
+  opacity: 0.55;
+  cursor: default;
+}
+.lv.is-locked .num {
+  border-color: var(--line-1);
+  color: var(--line-2);
+}
+.lv.is-locked .name {
+  color: var(--faint);
+}
+.lv.is-next {
+  background: linear-gradient(180deg, #4a3517, #38270f);
+  border-color: var(--amber);
+  box-shadow:
+    0 0 0 2px rgba(232, 163, 61, 0.35),
+    0 0 24px rgba(232, 163, 61, 0.25),
+    var(--lip);
+}
+.lv.is-next .num {
+  background: var(--amber-glow);
+  border-color: var(--pri-border);
+  color: var(--pri-ink);
+}
+.lv.is-next .name {
+  color: var(--amber-glow);
+}
+/* The NEXT flag drops in from -6px, 200ms after the card settles. */
+.lv .next-flag {
+  position: absolute;
+  top: -11px;
+  left: 50px;
+  background: var(--amber);
+  color: var(--pri-ink);
+  font: 700 9px/1 var(--f-num);
+  letter-spacing: 0.14em;
+  padding: 3px 8px;
+  border-radius: var(--r-pill);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+  animation: flag-drop var(--dur-base) var(--ease-out) 200ms backwards;
+}
+@keyframes flag-drop {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* Warlord chambers: full width, corner-cut, red-edged. */
+.lv.is-warlord {
+  width: 100%;
+  min-height: 76px;
+  gap: 14px;
+  padding: 12px var(--sp-4);
+  clip-path: polygon(
+    12px 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%, 0 12px
+  );
+}
+.lv.is-warlord:not(.is-locked):not(.is-next) {
+  border-color: var(--foe-border);
+}
+.lv.is-warlord .num {
+  width: 46px;
+  height: 46px;
+  font-size: 18px;
+}
+.lv.is-warlord .warlord-mark {
+  font: 600 10px/1.2 var(--f-num);
+  letter-spacing: 0.18em;
+  color: var(--team-b);
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.lv.is-warlord .name {
+  font-size: 18px;
+  margin-top: 2px;
+}
+
+/* --- Deploy (04) --------------------------------------------------------- */
+#screen-deploy {
+  background: var(--ink-1);
+}
+#deploy-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+#deploy-left {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+.canvas-well {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--ink-0);
+  padding: var(--sp-2);
+}
+#sand {
+  max-width: 100%;
+  max-height: 100%;
+  aspect-ratio: 8 / 5;
+  display: block;
+  border: var(--bw-slab) solid var(--slab-edge);
+  border-radius: 6px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5);
+  touch-action: none;
+}
+/* Tools row: Start the fight lives HERE at every size, so it can never leave
+ * the viewport. Fixed height reserves the team toggle's space too. */
+.tools {
+  flex: none;
+  min-height: 60px;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  background: linear-gradient(180deg, #241b10, #1e160c);
+  border-top: var(--bw-slab) solid var(--slab-edge);
+}
+.tools .spacer {
+  margin-left: auto;
+}
+#deploy-fight {
+  height: 48px;
+  padding: 0 22px;
+}
+#deploy-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  border-top: var(--bw-slab) solid var(--slab-edge);
+  background: #1e160e;
+}
+.foe-card {
+  flex: none;
+  margin: 10px 10px 0;
+  background: linear-gradient(180deg, var(--foe-top), var(--foe-bot));
+  border: var(--bw-slab) solid var(--slab-edge);
+  border-radius: var(--r-slab);
+  padding: 10px 12px;
+  box-shadow: inset 0 1px 0 rgba(239, 230, 214, 0.06);
+}
+.foe-card .head {
+  font: 600 10px/1.2 var(--f-num);
+  letter-spacing: 0.16em;
+  color: var(--team-b);
+  text-transform: uppercase;
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.foe-card .rows {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.foe-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-size: 12px;
+  min-height: 28px;
+}
+.foe-row .n {
+  color: var(--bone);
+  font-weight: 700;
+}
+.foe-row .a {
+  color: var(--muted);
+}
+.foe-row .c {
+  margin-left: auto;
+  font: 700 12px/1.2 var(--f-num);
+  color: var(--team-b);
+}
+/* Under 700px of height the opposition card collapses to one summary line;
+ * tapping it toggles the full lineup back open. */
+.foe-card.is-collapsed .rows {
+  display: none;
+}
+.foe-card .summary {
+  display: none;
+  font-size: 12px;
+  color: var(--bone);
+}
+.foe-card.is-collapsed .summary {
+  display: block;
+}
+.foe-card.is-collapsible {
+  cursor: pointer;
+}
+.tray-bar {
+  flex: none;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  padding: 10px 10px 6px;
+}
+.tray-bar .hint {
+  font-size: 10px;
+  color: var(--faint);
+  margin-left: auto;
+  text-align: right;
+  line-height: 1.3;
+  max-width: 16ch;
+}
+#deploy-tray-host {
+  flex: 1;
+  min-height: 0;
+}
+#deploy-tray-host > [data-scroll] {
+  padding: 4px 10px 12px;
+}
+#deploy-tray {
+  display: flex;
+  gap: var(--sp-2);
+}
+.tray-card {
+  position: relative;
+  flex: none;
+  width: 168px;
+  background: linear-gradient(180deg, var(--ink-3), #241b10);
+  border: var(--bw-slab) solid var(--slab-edge);
+  border-radius: var(--r-slab);
+  padding: var(--sp-2);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  box-shadow: var(--bevel), 0 2px 0 var(--slab-edge);
+  transition:
+    border-color var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out),
+    opacity var(--dur-fast) var(--ease-out);
+}
+.tray-card .head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.tray-card .n {
+  font: 700 12px/1.15 var(--f-display);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tray-card .a {
+  font-size: 10px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tray-card .price {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+}
+.tray-card .price .p {
+  font: 700 12px/1.2 var(--f-num);
+  color: var(--amber);
+}
+.tray-card .price .u {
+  font: 600 10px/1.2 var(--f-num);
+  color: var(--faint);
+}
+.tray-card .price .step:first-of-type {
+  margin-left: auto;
+}
+.tray-card.has-count {
+  border-color: var(--team-a);
+}
+.tray-card.is-armed {
+  background: linear-gradient(180deg, #4a3517, #38270f);
+  border-color: var(--amber);
+  box-shadow: 0 0 0 2px rgba(232, 163, 61, 0.35), 0 0 20px rgba(232, 163, 61, 0.25);
+}
+.tray-card.is-dim {
+  opacity: 0.45;
+}
+.tray-card .count-badge {
+  position: absolute;
+  top: -8px;
+  right: -6px;
+  background: var(--team-a);
+  color: #0a1622;
+  font: 700 11px/1.2 var(--f-num);
+  padding: 2px 7px;
+  border-radius: var(--r-pill);
+  border: var(--bw-slab) solid var(--slab-edge);
+}
+.tray-card .armed-flag {
+  position: absolute;
+  bottom: -8px;
+  left: var(--sp-2);
+  background: var(--amber);
+  color: var(--pri-ink);
+  font: 700 9px/1 var(--f-num);
+  letter-spacing: 0.1em;
+  padding: 2px 7px;
+  border-radius: var(--r-pill);
+  animation: flag-drop var(--dur-fast) var(--ease-out) backwards;
+}
+
+/* --- Battle (05) ---------------------------------------------------------
+ * The quietest surface in the game: near-black surround, sunken score track,
+ * slab footer — so the torchlit arena is the only bright thing. */
+#screen-battle {
+  background: var(--ink-0);
+}
+.score-bar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-2) 14px;
+  padding-top: calc(var(--sp-2) + env(safe-area-inset-top, 0px));
+  justify-content: center;
+  flex-wrap: wrap;
+}
+.score-bar .n {
+  font: 700 24px/1 var(--f-num);
+  text-shadow: 0 2px 0 #000;
+}
+.score-bar .n.is-a { color: var(--team-a); }
+.score-bar .n.is-b { color: var(--team-b); }
+.score-track {
+  width: min(320px, 40%);
+  height: 10px;
+  border-radius: var(--r-pill);
+  overflow: hidden;
+  border: var(--bw-slab) solid var(--slab-edge);
+  background: var(--ink-1);
+  display: flex;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.6);
+}
+.score-track .fill-a {
+  background: linear-gradient(180deg, #79b9ef, #3d84c4);
+  transition: width 300ms var(--ease-out);
+}
+.score-track .fill-b {
+  background: linear-gradient(180deg, #ef7f8c, #c24552);
+  flex: 1;
+}
+.score-bar .clock {
+  font: 600 13px/1.2 var(--f-num);
+  color: var(--muted);
+  background: var(--ink-1);
+  border: 1px solid var(--slab-edge);
+  border-radius: var(--r-pill);
+  padding: 4px 10px;
+}
+#battle-stage {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  padding: 0 var(--sp-2);
+}
+#battle-frame {
+  position: relative;
+  max-width: 100%;
+  max-height: 100%;
+  aspect-ratio: 16 / 9;
+  width: 100%;
+}
+#arena {
+  width: 100%;
+  height: 100%;
+  display: block;
+  border: var(--bw-slab) solid var(--slab-edge);
+  border-radius: 6px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+}
+/* The veil holds the frozen final frame for 600ms, then fades in over 450ms. */
+#battle-veil {
+  position: absolute;
+  inset: 0;
+  border-radius: 6px;
+  background: rgba(10, 7, 4, 0.72);
+  backdrop-filter: blur(2px);
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+  text-align: center;
+  padding: var(--sp-4);
+}
+#battle-veil.is-up {
+  display: flex;
+  animation: veil-in 450ms var(--ease-out) backwards;
+}
+#battle-veil .veil-title {
+  font: 700 34px/1.05 var(--f-display);
+  text-shadow: 0 3px 0 rgba(0, 0, 0, 0.6);
+}
+#battle-veil .veil-title.is-win { color: var(--good); }
+#battle-veil .veil-title.is-loss { color: var(--danger); }
+#battle-veil .veil-sub {
+  font: 600 14px/1.2 var(--f-num);
+  color: var(--muted);
+}
+@keyframes veil-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes veil-title-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+#battle-veil.is-up .veil-title {
+  animation: veil-title-in 450ms var(--ease-out) backwards;
+}
+.battle-foot {
+  flex: none;
+  min-height: 60px;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) 14px;
+  background: linear-gradient(180deg, #1e160c, #171009);
+  border-top: var(--bw-slab) solid var(--slab-edge);
+}
+.battle-foot .lv-name {
+  font: 700 14px/1.15 var(--f-display);
+  color: var(--muted);
+  margin-right: auto;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.battle-foot .btn {
+  height: var(--touch);
+  padding: 0 14px;
+  font: 600 13px/1 var(--f-ui);
+  color: var(--muted);
+}
+.battle-foot .btn .glyph-only { display: none; }
+
+/* --- Result / end states (05, 06) ---------------------------------------
+ * One centred 430px column at every size. Never two-column: the beat stays
+ * single-focus. Scrolls internally on short viewports. */
+.beat {
+  align-items: center;
+  justify-content: center;
+}
+.beat > .col {
+  position: relative;
+  width: 100%;
+  max-width: 430px;
+  max-height: 100%;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 28px 18px;
+}
+.beat .eyebrow {
+  font: 600 11px/1.2 var(--f-num);
+  letter-spacing: 0.18em;
+  color: var(--amber-deep);
+  text-transform: uppercase;
+}
+.beat .headline {
+  font: 700 34px/1.05 var(--f-display);
+  text-align: center;
+  text-shadow: 0 3px 0 rgba(0, 0, 0, 0.55);
+}
+.beat .headline.is-win { color: var(--good); }
+.beat .headline.is-loss { color: var(--danger); }
+.beat .headline.is-victory {
+  color: var(--amber-glow);
+  text-shadow: 0 0 26px rgba(232, 163, 61, 0.4), 0 3px 0 rgba(0, 0, 0, 0.55);
+}
+.beat .top-glow {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+/* Four cells, always balanced. Flex-wrap left the widest label ("Enemies
+ * slain") pushing Royal jelly onto a lonely second row; a grid keeps the tally
+ * reading as one block — 4-up where it fits, 2×2 where it does not. */
+.tally {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--sp-2);
+  width: 100%;
+}
+@media (max-width: 419px) {
+  .tally {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.tally .cell {
+  background: linear-gradient(180deg, #2c2115, #221a10);
+  border: var(--bw-slab) solid var(--slab-edge);
+  border-radius: 6px;
+  padding: 7px 8px;
+  text-align: center;
+  box-shadow: var(--bevel);
+  min-width: 0;
+}
+.tally .cell .v {
+  font: 700 15px/1.2 var(--f-num);
+}
+.tally .cell .v.is-good { color: var(--good); }
+.tally .cell .v.is-nil { color: var(--faint); }
+.tally .cell .k {
+  font: 600 9px/1.2 var(--f-num);
+  letter-spacing: 0.12em;
+  color: var(--faint);
+  text-transform: uppercase;
+  margin-top: 2px;
+}
+/* The note line always reserves 18px so the buttons never jump between
+ * outcomes (a win has a grant card above it; a loss does not). */
+.beat .note {
+  min-height: 18px;
+  font-size: 12px;
+  color: var(--muted);
+  font-style: italic;
+  text-align: center;
+}
+.beat .actions {
+  display: flex;
+  gap: var(--sp-2);
+  width: 100%;
+}
+.beat .actions .btn { flex: 1; height: 48px; }
+.beat .actions .btn-boost { flex: 1.4; }
+.beat .btn-primary {
+  width: 100%;
+  height: 56px;
+  font-size: 16px;
+}
+
+/* The grant card: the single most decorated element in the game. Corner cuts,
+ * amber-glow and a 600ms entrance are reserved for it alone. */
+#lr-grant {
+  position: relative;
+  width: 100%;
+  margin-top: 6px;
+  background: linear-gradient(180deg, var(--grant-top), var(--grant-bot));
+  border: var(--bw-slab) solid var(--amber);
+  border-radius: var(--r-cut);
+  clip-path: polygon(
+    14px 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%, 0 14px
+  );
+  padding: var(--sp-4);
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  box-shadow:
+    0 0 0 2px rgba(232, 163, 61, 0.3),
+    0 0 34px rgba(232, 163, 61, 0.28),
+    var(--el-2);
+  animation: grant-in var(--dur-beat) var(--ease-out) 900ms backwards;
+}
+#lr-grant .eyebrow {
+  color: var(--amber-glow);
+  letter-spacing: 0.16em;
+  font-size: 10px;
+}
+#lr-grant .name {
+  font: 700 22px/1.1 var(--f-display);
+  color: var(--amber-glow);
+  margin: 2px 0;
+}
+#lr-grant .name .joins {
+  font: 400 14px/1.1 var(--f-display);
+  color: var(--muted);
+}
+#lr-grant .desc {
+  font-size: 12px;
+  line-height: 1.5;
+  color: #d8c5a5;
+}
+#lr-grant .desc .ability {
+  color: var(--amber);
+  font-weight: 600;
+  font-style: normal;
+}
+#lr-grant .stamp {
+  animation: stamp-in 80ms var(--ease-out) 1300ms backwards;
+}
+@keyframes grant-in {
+  0% { opacity: 0; transform: translateY(26px) scale(0.96); }
+  60% { opacity: 1; transform: translateY(-4px) scale(1.01); }
+  100% { opacity: 1; transform: none; }
+}
+@keyframes stamp-in {
+  from { transform: rotate(6deg) scale(1.6); }
+  to { transform: rotate(6deg) scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  /* 300ms fade, no overshoot; the stamp is simply there. */
+  #lr-grant { animation: veil-in 300ms var(--ease-out) 900ms backwards; }
+  #lr-grant .stamp { animation: none; }
+}
+
+/* Mutation reward: exactly three equal cards, the rare one wearing the grant
+ * card's tint and glow. */
+.mutations {
+  display: flex;
+  gap: var(--sp-2);
+  width: 100%;
+}
+.mutation {
+  all: unset;
+  box-sizing: border-box;
+  cursor: pointer;
+  flex: 1;
+  background: linear-gradient(180deg, var(--ink-3), #241b10);
+  border: var(--bw-slab) solid var(--slab-edge);
+  border-radius: var(--r-slab);
+  padding: var(--sp-3) 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  box-shadow: var(--slab-shadow);
+  transition: transform var(--dur-tap) var(--ease-out);
+}
+.mutation:active { transform: translateY(2px); }
+.mutation .t {
+  font: 700 14px/1.15 var(--f-display);
+}
+.mutation .d {
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--muted);
+}
+.mutation.is-rare {
+  background: linear-gradient(180deg, var(--grant-top), var(--grant-bot));
+  border-color: var(--amber);
+  box-shadow:
+    0 0 0 2px rgba(232, 163, 61, 0.3),
+    0 0 20px rgba(232, 163, 61, 0.2),
+    var(--lip);
+}
+.mutation.is-rare .rare-tag {
+  font: 700 10px/1.2 var(--f-num);
+  letter-spacing: 0.14em;
+  color: var(--amber);
+}
+.mutation.is-rare .t { color: var(--amber-glow); }
+.mutation.is-rare .d { color: #d8c5a5; }
+@media (max-width: 339px) {
+  .mutations { flex-direction: column; }
+}
+
+/* --- Hatchery (06) ------------------------------------------------------- */
+#shop-grid {
+  padding: var(--sp-3);
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+  align-content: start;
+}
+.shop-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  background: linear-gradient(180deg, var(--ink-3), #241b10);
+  border: var(--bw-slab) solid var(--slab-edge);
+  border-radius: var(--r-slab);
+  padding: 10px 12px;
+  box-shadow: var(--slab-shadow);
+  transition: opacity var(--dur-base) var(--ease-out);
+}
+/* Unaffordable: the whole row dims and its button goes inert. */
+.shop-row.is-poor { opacity: 0.5; }
+.shop-row .body { min-width: 0; flex: 1; }
+.shop-row .line-1 {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+}
+.shop-row .nm { font: 700 15px/1.15 var(--f-display); }
+.shop-row .stat {
+  font: 600 10px/1.2 var(--f-num);
+  letter-spacing: 0.1em;
+  color: var(--faint);
+}
+.shop-row .desc {
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--muted);
+  margin-top: 2px;
+}
+.shop-row .desc .ability {
+  color: var(--amber);
+  font-weight: 600;
+}
+.shop-row .buy {
+  flex: none;
+  padding: 0 14px;
+  font: 700 13px/1 var(--f-num);
+}
+
+/* --- Draft (06) ---------------------------------------------------------- */
+#draft-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+#draft-body > .fade-host.is-drawer {
+  flex: 1.4;
+  min-width: 0;
+  min-height: 0;
+}
+#draft-drawer {
+  padding: var(--sp-3);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  align-content: start;
+}
+.draft-card {
+  position: relative;
+  background: linear-gradient(180deg, var(--ink-3), #241b10);
+  border: var(--bw-slab) solid var(--slab-edge);
+  border-radius: var(--r-slab);
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  box-shadow: var(--slab-shadow);
+}
+.draft-card.is-owned {
+  background: linear-gradient(180deg, #22301f, #1b2418);
+  border-color: #3d5c41;
+}
+.draft-card.is-poor { opacity: 0.5; }
+.draft-card .head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+.draft-card .n {
+  font: 700 14px/1.15 var(--f-display);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.draft-card .a {
+  font-size: 10px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.draft-card .stats {
+  font: 600 10px/1.2 var(--f-num);
+  color: var(--faint);
+}
+.draft-card .buy {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.draft-card .buy .p {
+  font: 700 13px/1.2 var(--f-num);
+  color: var(--amber);
+}
+.draft-card .buy .own {
+  font: 700 11px/1.2 var(--f-num);
+  color: var(--team-a);
+}
+.draft-card .buy .step:first-of-type { margin-left: auto; }
+#draft-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: var(--sp-3);
+  border-top: var(--bw-slab) solid var(--slab-edge);
+  background: #1e160e;
+  overflow-y: auto;
+}
+#draft-panel .panel-label {
+  font: 600 10px/1.2 var(--f-num);
+  letter-spacing: 0.16em;
+  color: var(--faint);
+  text-transform: uppercase;
+}
+.roster-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  background: linear-gradient(180deg, var(--ink-3), #241b10);
+  border: var(--bw-slab) solid var(--slab-edge);
+  border-radius: 6px;
+  padding: 6px 10px;
+}
+.roster-row .n { font: 700 13px/1.15 var(--f-display); }
+.roster-row .c {
+  font: 700 12px/1.2 var(--f-num);
+  color: var(--team-a);
+}
+.roster-row .step { margin-left: auto; }
+.scout {
+  background: linear-gradient(180deg, var(--foe-top), var(--foe-bot));
+  border: var(--bw-slab) solid var(--slab-edge);
+  border-radius: var(--r-slab);
+  padding: 10px 12px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #d8c5a5;
+}
+.scout .foe { color: var(--team-b); font-weight: 700; }
+.scout .num { color: var(--bone); font-weight: 700; }
+.scout .verdict { color: var(--team-b); font-style: normal; }
+.mut-chips {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.mut-chip {
+  font: 600 10px/1.2 var(--f-num);
+  background: var(--ink-2);
+  border: 1px solid var(--line-2);
+  color: var(--muted);
+  border-radius: var(--r-pill);
+  padding: 4px 9px;
+}
+.mut-chip.is-rare {
+  border-color: var(--amber-deep);
+  color: var(--amber);
+}
+#draft-send {
+  height: 54px;
+  margin-top: auto;
+}
+
+/* =========================================================================
+ * WIDE — min-aspect-ratio: 1/1. Orientation, not device, drives layout.
+ * ========================================================================= */
+@media (min-aspect-ratio: 1/1) {
+  /* Title: two columns 46/54, both vertically centred; nothing is dropped.
+   * Same safe-alignment rule as portrait — in a row the risk moves to
+   * align-items, which would shear the tops off both columns at once. */
+  #screen-title {
+    flex-direction: row;
+    align-items: center;
+    align-items: safe center;
+    gap: 36px;
+    padding: 20px 44px;
+  }
+  #screen-title .brand { flex: 0 1 46%; }
+  #screen-title .modes { flex: 0 1 54%; }
+  #screen-title .wordmark { font-size: 52px; }
+
+  /* Campaign: same path, wider column. */
+  #camp-path { max-width: 640px; }
+
+  /* Deploy: canvas + tools left 62%, panel a right column; tray becomes a grid. */
+  #deploy-body { flex-direction: row; }
+  #deploy-left { flex: 1 1 62%; }
+  #deploy-panel {
+    flex: 0 0 300px;
+    border-top: none;
+    border-left: var(--bw-slab) solid var(--slab-edge);
+  }
+  #deploy-tray-host > [data-scroll] {
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+  #deploy-tray {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+  .tray-card { width: auto; }
+
+  /* Draft: drawer left, colony panel right. */
+  #draft-body { flex-direction: row; }
+  #draft-panel {
+    flex: 1;
+    min-width: 280px;
+    max-width: 340px;
+    border-top: none;
+    border-left: var(--bw-slab) solid var(--slab-edge);
+  }
+}
+
+/* =========================================================================
+ * DESKTOP — min-width: 1000px. Density only.
+ * ========================================================================= */
+@media (min-width: 1000px) {
+  .topbar { padding: 10px var(--sp-4); }
+  #screen-title {
+    padding: var(--sp-7) 110px;
+    gap: 72px;
+  }
+  #screen-title .wordmark { font-size: 60px; }
+  /* A faint amber vignette sits behind the wordmark on desktop only. */
+  #screen-title .brand::before {
+    content: '';
+    position: absolute;
+    inset: -200px;
+    pointer-events: none;
+    background: radial-gradient(600px 600px at 50% 50%, rgba(232, 163, 61, 0.05), transparent);
+  }
+  #deploy-panel { flex-basis: 380px; }
+  #deploy-tray { grid-template-columns: 1fr 1fr; }
+  #shop-grid {
+    grid-template-columns: 1fr 1fr;
+    padding: var(--sp-5);
+  }
+  #draft-drawer { grid-template-columns: 1fr 1fr 1fr; }
+  #camp-path { padding-left: var(--sp-5); padding-right: var(--sp-5); }
+}
+
+/* Battle footer under 390px: Speed/Sound collapse to glyph slabs; Skip keeps
+ * its label, because it is the one control a player hunts for. */
+@media (max-width: 389px) {
+  .battle-foot .btn.is-collapsible { padding: 0; width: var(--touch); }
+  .battle-foot .btn.is-collapsible .label-full { display: none; }
+  .battle-foot .btn.is-collapsible .glyph-only { display: inline; }
+}

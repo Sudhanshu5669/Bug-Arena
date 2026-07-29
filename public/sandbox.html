@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Bug Arena — Sandbox</title>
+    <link rel="stylesheet" href="/styles/tokens.css" />
+    <style>
+      /* The sandbox stays a DEVELOPER TOOL (UI spec 09): page ink-0, text bone,
+       * mono throughout, controls as unstyled-density ghost slabs at 32px —
+       * deliberately exempt from the game's 44px rule, because this is not a
+       * touch surface. Amber appears on the run button and nowhere else. It
+       * borrows the game's tokens so it no longer looks broken next to it, and
+       * borrows nothing else. */
+      body {
+        background: var(--ink-0);
+        color: var(--bone);
+        font: 400 13px/1.5 var(--f-num);
+      }
+      .wrap {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 340px;
+        gap: var(--sp-4);
+        max-width: 1440px;
+        margin: 0 auto;
+        padding: var(--sp-4);
+      }
+      header {
+        grid-column: 1 / -1;
+        display: flex;
+        align-items: baseline;
+        gap: var(--sp-3);
+        flex-wrap: wrap;
+      }
+      header h1 {
+        margin: 0;
+        font: 700 18px/1.2 var(--f-display);
+        letter-spacing: 0;
+      }
+      header .sub {
+        color: var(--faint);
+        font-size: 11px;
+      }
+      header a {
+        margin-left: auto;
+        color: var(--amber);
+        font-size: 11px;
+        text-decoration: none;
+        border-bottom: 1px solid transparent;
+      }
+      header a:hover { border-bottom-color: var(--amber); }
+
+      .stage {
+        position: relative;
+        background: var(--ink-1);
+        border: 1px solid var(--line-1);
+        border-radius: var(--r-card);
+        padding: var(--sp-2);
+      }
+      canvas {
+        width: 100%;
+        height: auto;
+        aspect-ratio: 16 / 9;
+        display: block;
+        border-radius: var(--r-card);
+        background: var(--ink-0);
+      }
+      .overlay {
+        position: absolute;
+        inset: var(--sp-2);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+        gap: var(--sp-2);
+        background: rgba(10, 7, 4, 0.82);
+        border-radius: var(--r-card);
+        text-align: center;
+      }
+      .overlay.show { display: flex; }
+      .overlay h2 { margin: 0; font: 700 26px/1.1 var(--f-display); }
+      .overlay p { margin: 0; color: var(--muted); font-size: 12px; }
+
+      .side { display: flex; flex-direction: column; gap: var(--sp-3); }
+      .card {
+        background: var(--ink-1);
+        border: 1px solid var(--line-1);
+        border-radius: var(--r-card);
+        padding: var(--sp-3);
+      }
+      .card h3 {
+        margin: 0 0 10px;
+        font: 600 10px/1.2 var(--f-num);
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+        color: var(--faint);
+      }
+      .scorebar { display: flex; align-items: center; gap: 10px; }
+      .scorebar .n { font: 700 22px/1 var(--f-num); min-width: 34px; text-align: center; }
+      .scorebar .n.a { color: var(--team-a); }
+      .scorebar .n.b { color: var(--team-b); }
+      .bar {
+        flex: 1;
+        height: 8px;
+        border-radius: var(--r-pill);
+        overflow: hidden;
+        background: var(--team-b);
+        display: flex;
+      }
+      .bar > i { display: block; height: 100%; background: var(--team-a); transition: width 0.2s; }
+      .meta {
+        display: flex;
+        justify-content: space-between;
+        color: var(--faint);
+        font-size: 11px;
+        margin-top: var(--sp-2);
+        gap: var(--sp-2);
+      }
+      .roster { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+      .roster .team-col h4 { margin: 0 0 6px; font-size: 11px; font-weight: 600; }
+      .roster .team-col.a h4 { color: var(--team-a); }
+      .roster .team-col.b h4 { color: var(--team-b); }
+      .sp-row { display: flex; align-items: center; gap: 6px; font-size: 11px; margin-bottom: 3px; }
+      .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; border: 1px solid rgba(0, 0, 0, 0.4); }
+      .sp-row .cnt { margin-left: auto; color: var(--faint); font-variant-numeric: tabular-nums; }
+      .feed { max-height: 260px; overflow-y: auto; display: flex; flex-direction: column; gap: 3px; }
+      .feed .line { font-size: 11px; color: var(--muted); }
+      .feed .line b { color: var(--bone); font-weight: 600; }
+
+      /* Ghost slabs at dev density: 32px, hairline, no lip. */
+      .controls { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+      button {
+        background: var(--ink-2);
+        color: var(--bone);
+        border: 1px solid var(--line-1);
+        border-radius: var(--r-card);
+        height: 32px;
+        padding: 0 10px;
+        font: 600 11px/1 var(--f-num);
+        cursor: pointer;
+      }
+      button:hover { border-color: var(--line-2); }
+      button.primary {
+        background: var(--amber);
+        color: var(--pri-ink);
+        border-color: var(--pri-border);
+      }
+      .seg { display: inline-flex; border: 1px solid var(--line-1); border-radius: var(--r-card); overflow: hidden; }
+      .seg button { border: none; border-radius: 0; }
+      .seg button.active { background: var(--line-2); color: var(--bone); }
+      .status-pill { font-size: 11px; color: var(--faint); }
+
+      /* --- Fight builder --- */
+      .builder { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-3); }
+      .bteam h4 { margin: 0 0 6px; font-size: 11px; font-weight: 600; }
+      .bteam h4.a { color: var(--team-a); }
+      .bteam h4.b { color: var(--team-b); }
+      .build-list { display: flex; flex-direction: column; gap: 4px; }
+      .build-row { display: flex; align-items: center; gap: 6px; font-size: 11px; opacity: 0.5; }
+      .build-row.has { opacity: 1; }
+      .build-row .bname { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .stepper { display: inline-flex; align-items: center; gap: 3px; }
+      .stepper button { height: 24px; min-width: 24px; padding: 0 6px; }
+      .stepper .bcount { min-width: 16px; text-align: center; font-variant-numeric: tabular-nums; }
+      .builder-foot { display: flex; align-items: center; gap: var(--sp-2); margin-top: var(--sp-3); flex-wrap: wrap; }
+      .seed-field { font-size: 11px; color: var(--faint); display: flex; align-items: center; gap: 5px; }
+      .seed-field input {
+        width: 78px;
+        background: var(--ink-2);
+        color: var(--bone);
+        border: 1px solid var(--line-1);
+        border-radius: var(--r-card);
+        padding: 5px 7px;
+        font: inherit;
+      }
+      .build-hint { font-size: 11px; color: var(--danger); margin-top: 6px; min-height: 14px; }
+
+      @media (max-width: 900px) { .wrap { grid-template-columns: 1fr; } }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header>
+        <h1>Bug Arena — sandbox</h1>
+        <span class="sub">dev tool · the engine runs headless in Node, this is only a renderer</span>
+        <a href="/">← Colony Gladiator</a>
+      </header>
+
+      <div class="stage">
+        <canvas id="arena" width="1280" height="720"></canvas>
+        <div class="overlay" id="overlay">
+          <h2 id="overlay-title">Battle Over</h2>
+          <p id="overlay-sub"></p>
+        </div>
+      </div>
+
+      <div class="side">
+        <div class="card">
+          <h3>Survivors</h3>
+          <div class="scorebar">
+            <span class="n a" id="score-a">0</span>
+            <span class="bar"><i id="bar-a" style="width: 50%"></i></span>
+            <span class="n b" id="score-b">0</span>
+          </div>
+          <div class="meta">
+            <span id="meta-time">0.0s</span>
+            <span class="status-pill" id="meta-status">connecting…</span>
+            <span id="meta-mode">—</span>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>Rosters</h3>
+          <div class="roster">
+            <div class="team-col a"><h4>Team A</h4><div id="roster-a"></div></div>
+            <div class="team-col b"><h4>Team B</h4><div id="roster-b"></div></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>Abilities <span style="text-transform: none; letter-spacing: 0; color: var(--line-2)">(cooldowns)</span></h3>
+          <div id="abilities"></div>
+        </div>
+
+        <div class="card">
+          <h3>Event Feed</h3>
+          <div class="feed" id="feed"></div>
+        </div>
+
+        <div class="card">
+          <h3>Controls</h3>
+          <div class="controls">
+            <button class="primary" id="btn-new">New Battle (random)</button>
+            <span class="seg">
+              <button id="mode-agg">Aggressive</button>
+              <button id="mode-pass" class="active">Passive</button>
+            </span>
+          </div>
+          <div class="meta"><span id="meta-seed">seed —</span></div>
+        </div>
+
+        <div class="card">
+          <h3>Build a Fight</h3>
+          <div class="builder">
+            <div class="bteam">
+              <h4 class="a">Team A</h4>
+              <div id="build-a" class="build-list"></div>
+            </div>
+            <div class="bteam">
+              <h4 class="b">Team B</h4>
+              <div id="build-b" class="build-list"></div>
+            </div>
+          </div>
+          <div class="builder-foot">
+            <label class="seed-field">Seed <input id="build-seed" type="text" inputmode="numeric" placeholder="random" /></label>
+            <button class="primary" id="btn-simulate">Simulate ▶</button>
+            <button id="btn-clear-build">Clear</button>
+          </div>
+          <div class="build-hint" id="build-hint"></div>
+        </div>
+      </div>
+    </div>
+
+    <script type="module" src="/client.js"></script>
+  </body>
+</html>

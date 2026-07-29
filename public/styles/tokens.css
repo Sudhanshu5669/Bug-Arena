@@ -1,0 +1,189 @@
+/* Colony Gladiator — design tokens (UI spec 01).
+ *
+ * The canonical value set. Nothing anywhere else in the game defines a colour,
+ * a type style, a spacing step or a duration; it names one of these instead.
+ * Surfaces LIGHTEN with elevation (like lit chitin), not darken.
+ */
+
+:root {
+  /* --- 1 · Colour ramp ---------------------------------------------------- */
+  --ink-0: #120d09; /* deepest — boot gate, battle surround, veil base */
+  --ink-1: #1a140e; /* page background of every screen */
+  --ink-2: #241b12; /* panel / card container fill */
+  --ink-3: #2f2417; /* raised card fill: tray cards, shop rows, level cards */
+  --line-1: #3e2f1f; /* hairline borders, dividers */
+  --line-2: #584330; /* hover borders, active card edges */
+
+  --amber: #e8a33d; /* THE accent: primary action, the "next" thing, rewards */
+  --amber-deep: #a9741f; /* pressed accent, dim accent text, eyebrow labels */
+  --amber-glow: #ffd98a; /* grant card + star fill flash ONLY */
+
+  --bone: #efe6d6; /* primary text */
+  --muted: #a8937c; /* secondary text, subtitles, ability names */
+  --faint: #71624f; /* tertiary, disabled text, locked level numbers */
+
+  --good: #84c98b; /* positive deltas, win headline, ACQUIRED tag */
+  --danger: #d9584a; /* loss headline, Abandon run, destructive only */
+
+  /* Must stay in lockstep with render/canvasRenderer.js TEAM and game/paint.js. */
+  --team-a: #58a4e8; /* player blue */
+  --team-b: #e85f6e; /* enemy red */
+
+  /* Slab-specific derived values (the chunky carved look). */
+  --slab-edge: #0d0906; /* bw-slab border colour + bottom lip */
+  --slab-hi: #3a2c1b; /* slab hover top stop */
+  --slab-hi-2: #2c2113; /* slab hover bottom stop */
+  --pri-top: #f2b04a;
+  --pri-bot: #d18a25;
+  --pri-top-hover: #ffc45e;
+  --pri-bot-hover: #dd9930;
+  --pri-border: #7a5410;
+  --pri-lip: #6b4a0e;
+  --pri-ink: #1a1000; /* text on amber fills */
+  --grant-top: #3d2c12;
+  --grant-bot: #2a1d0b;
+  --foe-top: #2c1a18; /* red-tinted opposition slab */
+  --foe-bot: #241412;
+  --foe-border: #8a3540;
+
+  /* --- 2 · Type ----------------------------------------------------------- */
+  --f-display: Georgia, 'Times New Roman', serif;
+  --f-ui: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --f-num: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+
+  /* --- 3 · Spacing · radii · borders -------------------------------------- */
+  --sp-1: 4px; /* icon↔text, star gap */
+  --sp-2: 8px; /* inside chips, tight stacks */
+  --sp-3: 12px; /* card padding (small), grid gaps */
+  --sp-4: 16px; /* panel padding, screen edge (mobile) */
+  --sp-5: 24px; /* section gaps, screen edge (desktop) */
+  --sp-6: 32px; /* between major regions */
+  --sp-7: 48px; /* result-screen vertical rhythm */
+
+  --r-card: 3px;
+  --r-slab: 8px;
+  --r-cut: 10px; /* corner-cut bevel: grant card + warlord slabs only */
+  --r-pill: 999px;
+
+  --bw-hair: 1px;
+  --bw-slab: 2px;
+  --touch: 44px; /* minimum hit box, always */
+
+  /* --- 4 · Elevation & glow ----------------------------------------------- */
+  --el-0: inset 0 1px 0 rgba(239, 230, 214, 0.04);
+  --el-1: 0 2px 6px rgba(0, 0, 0, 0.4);
+  --el-2: 0 12px 32px rgba(0, 0, 0, 0.55);
+  --glow-amber: 0 0 0 2px var(--amber), 0 0 28px rgba(232, 163, 61, 0.3);
+
+  /* The slab mechanic: top bevel light + bottom lip. Pressing collapses the lip. */
+  --bevel: inset 0 1px 0 rgba(239, 230, 214, 0.08);
+  --lip: 0 3px 0 var(--slab-edge);
+  --slab-shadow: var(--bevel), var(--lip);
+  --slab-shadow-down: var(--bevel), 0 1px 0 var(--slab-edge);
+  --pri-bevel: inset 0 2px 0 rgba(255, 235, 190, 0.5);
+  --pri-shadow: var(--pri-bevel), 0 4px 0 var(--pri-lip), 0 6px 10px rgba(0, 0, 0, 0.45);
+  --pri-shadow-down: var(--pri-bevel), 0 1px 0 var(--pri-lip);
+
+  /* --- 5 · Motion --------------------------------------------------------- */
+  --dur-tap: 90ms;
+  --dur-fast: 160ms;
+  --dur-base: 220ms;
+  --dur-slow: 420ms;
+  --dur-beat: 600ms;
+  --ease-out: cubic-bezier(0.2, 0.8, 0.3, 1);
+  --ease-in: cubic-bezier(0.5, 0, 0.8, 0.4);
+  --ease-pop: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* --- Type scale ----------------------------------------------------------
+ * All numerals use --f-num so counters never reflow when their value changes.
+ */
+.t-wordmark {
+  font: 700 56px/0.95 var(--f-display);
+  letter-spacing: -0.01em;
+}
+.t-display {
+  font: 700 34px/1.05 var(--f-display);
+}
+.t-screen {
+  font: 700 22px/1.1 var(--f-display);
+}
+.t-card {
+  font: 700 16px/1.15 var(--f-display);
+}
+.t-body {
+  font: 400 14px/1.5 var(--f-ui);
+}
+.t-sub {
+  font: 400 13px/1.45 var(--f-ui);
+}
+.t-label {
+  font: 600 11px/1.2 var(--f-num);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.t-num-lg {
+  font: 700 22px/1 var(--f-num);
+}
+.t-num {
+  font: 600 13px/1.2 var(--f-num);
+}
+.t-btn {
+  font: 600 15px/1 var(--f-ui);
+  letter-spacing: 0.02em;
+}
+
+@media (max-width: 479px) {
+  .t-wordmark {
+    font-size: 42px;
+  }
+  .t-display {
+    font-size: 28px;
+  }
+}
+
+/* --- Base ----------------------------------------------------------------- */
+* {
+  box-sizing: border-box;
+}
+
+/* The root carries the page colour too, so that if anything ever fails to
+ * cover the viewport the exposed area is still the game's own dark ground
+ * rather than a band of a different shade. (Page scrolling is only suppressed
+ * in screens.css, which the scrolling sandbox page does not load.) */
+html {
+  height: 100%;
+  background: var(--ink-1);
+}
+
+body {
+  min-height: 100%;
+  margin: 0;
+  background: var(--ink-1);
+  color: var(--bone);
+  font: 400 14px/1.5 var(--f-ui);
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior: none;
+}
+
+/* Focus-visible is never suppressed: 2px amber outline offset 2px on every
+ * interactive element. On amber-filled surfaces it flips to bone so it reads. */
+:focus-visible {
+  outline: 2px solid var(--amber);
+  outline-offset: 2px;
+}
+.btn-primary:focus-visible,
+.filter-pill.is-on:focus-visible {
+  outline-color: var(--bone);
+}
+
+/* Under reduced motion every transform animation collapses to a 120ms fade. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 120ms !important;
+    animation-delay: 0ms !important;
+    transition-duration: 120ms !important;
+  }
+}
