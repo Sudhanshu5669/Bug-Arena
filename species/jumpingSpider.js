@@ -93,7 +93,9 @@ const jumpingSpider = {
       // a pounce onto empty ground would be a wasted 10-second cooldown.
       const victim = ctx.nearestEnemy(self, POUNCE.LUNGE);
       if (!victim) {
-        ctx.spawnEffect({ kind: 'leap', x: self.x, y: self.y, team: self.team });
+        // Nothing to pounce on: the spider still uncoils, but on the spot. A
+        // zero-length leap is a valid line; a leap with no line at all is not.
+        ctx.spawnEffect({ kind: 'leap', x1: self.x, y1: self.y, x2: self.x, y2: self.y, team: self.team });
         return;
       }
 
@@ -105,12 +107,13 @@ const jumpingSpider = {
       const damage = POUNCE.DAMAGE * (wounded ? POUNCE.EXECUTE_BONUS : 1);
       ctx.dealDamage(victim, damage, { sourceAgent: self, cause: 'leap' });
 
+      // (x1,y1) -> (x2,y2), not x/y/toX/toY. See tools/fxCheck.js.
       ctx.spawnEffect({
         kind: 'leap',
-        x: fromX,
-        y: fromY,
-        toX: victim.x,
-        toY: victim.y,
+        x1: fromX,
+        y1: fromY,
+        x2: victim.x,
+        y2: victim.y,
         team: self.team,
       });
       ctx.emitEvent('ability', {

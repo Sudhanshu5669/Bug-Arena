@@ -4,19 +4,35 @@
 // them and turns taps into calls on them — it decides nothing about difficulty,
 // pricing, gating or rewards.
 
-import { $, show, escapeHtml, thumbHtml, toast } from './ui.js';
+import { $, show, escapeHtml, setNum, thumbHtml, tintStyle, toast } from './ui.js';
 import { startBattle } from './battle.js';
 import { portal } from './portal.js';
 import { costOf } from './game/economy.js';
 
 /** Arena the campaign fights in. Landscape; the deploy zones split it left/right. */
-const ARENA = Object.freeze({ width: 960, height: 600, wallThickness: 24 });
+const ARENA = Object.freeze({ width: 820, height: 520, wallThickness: 22 });
 
 /** Fights between interstitials. */
 const AD_EVERY_FIGHTS = 3;
 
 /** Extra larvae a rewarded ad buys, as a fraction of the level's own budget. */
 const BOOST_FRACTION = 0.3;
+
+/**
+ * The campaign reads as a shaft dug downward, so the level select is banded into
+ * chapters of five rather than run as one grid of thirty. Each band ends on a
+ * warlord, which is what makes the boss levels look like the milestones they are.
+ * Names are flavour only — nothing keys off them.
+ */
+const CHAPTERS = [
+  'The Surface Trails',
+  'The Upper Galleries',
+  'The Middle Nest',
+  'The Silk Deeps',
+  'The Rotting Core',
+  'The Queen’s Chamber',
+];
+const CHAPTER_SIZE = 5;
 
 export class CampaignScreen {
   constructor({ catalog, progress, deploy, persist, onHome }) {
@@ -59,27 +75,57 @@ export class CampaignScreen {
     const next = p.nextLevel;
 
     $('camp-rank').textContent = p.rank;
-    $('camp-cleared').textContent = `${p.clearedCount}/${p.levels.length}`;
-    $('camp-stars').textContent = `${p.totalStars}/${p.levels.length * 3}`;
-    $('camp-coins').textContent = p.coins;
+    setNum($('camp-cleared'), `${p.clearedCount}/${p.levels.length}`);
+    setNum($('camp-stars'), `${p.totalStars}/${p.levels.length * 3}`);
+    setNum($('camp-coins'), p.coins);
 
-    $('camp-grid').innerHTML = p.levels
-      .map((lv) => {
-        const cleared = p.isCleared(lv.index);
-        const open = p.isUnlocked(lv.index);
-        const stars = p.starsFor(lv.index);
-        const state = cleared ? 'done' : open ? 'open' : 'locked';
-        const pips = [0, 1, 2].map((i) => `<i class="${i < stars ? 'on' : ''}"></i>`).join('');
-        return `<button class="lv ${state} ${lv.isBoss ? 'boss' : ''} ${next && next.index === lv.index ? 'next' : ''}"
-                  data-lv="${lv.index}" ${open ? '' : 'disabled'}
-                  aria-label="Level ${lv.index}: ${escapeHtml(lv.name)}${open ? '' : ' (locked)'}">
-            <span class="n">${lv.index}</span>
-            <span class="nm">${open ? escapeHtml(lv.name) : 'Locked'}</span>
-            <span class="stars">${pips}</span>
-            ${lv.isBoss ? '<span class="crown">WARLORD</span>' : ''}
-          </button>`;
-      })
-      .join('');
+    const card = (lv) => {
+      const cleared = p.isCleared(lv.index);
+      const open = p.isUnlocked(lv.index);
+      const stars = p.starsFor(lv.index);
+      const state = cleared ? 'done' : open ? 'open' : 'locked';
+      const pips = [0, 1, 2].map((i) => `<i class="${i < stars ? 'on' : ''}"></i>`).join('');
+
+      // Who is waiting in there, as pictures. Thirty cards that differ only by a
+      // name and a number are a table of contents; thirty cards showing the
+      // things you are about to fight are a map. Locked chambers stay blank —
+      // finding out what is down there is the reason to keep going.
+      const foes = open
+        ? Object.entries(lv.enemy ?? {})
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 3)
+            .map(([id]) => this.byId.get(id))
+            .filter(Boolean)
+            .map((sp) => `<span class="foe-pip">${thumbHtml(sp)}</span>`)
+            .join('')
+        : '';
+
+      return `<button class="lv ${state} ${lv.isBoss ? 'boss' : ''} ${next && next.index === lv.index ? 'next' : ''}"
+                data-lv="${lv.index}" ${open ? '' : 'disabled'}
+                aria-label="Level ${lv.index}: ${escapeHtml(lv.name)}${open ? '' : ' (locked)'}">
+          <span class="n">${lv.index}</span>
+          <span class="nm">${open ? escapeHtml(lv.name) : 'Locked'}</span>
+          ${foes ? `<span class="foes">${foes}</span>` : ''}
+          <span class="stars">${pips}</span>
+          ${lv.isBoss ? '<span class="crown">WARLORD</span>' : ''}
+        </button>`;
+    };
+
+    const chapters = [];
+    for (let start = 0; start < p.levels.length; start += CHAPTER_SIZE) {
+      const band = p.levels.slice(start, start + CHAPTER_SIZE);
+      const n = Math.floor(start / CHAPTER_SIZE);
+      const allDone = band.every((lv) => p.isCleared(lv.index));
+      chapters.push(`<section class="chapter ${allDone ? 'done' : ''}">
+          <div class="chapter-head">
+            <span class="depth">Depth ${n + 1}</span>
+            <span class="nm">${escapeHtml(CHAPTERS[n] ?? `Chambers ${band[0].index}–${band[band.length - 1].index}`)}</span>
+            <span class="rule"></span>
+          </div>
+          <div class="chapter-row">${band.map(card).join('')}</div>
+        </section>`);
+    }
+    $('camp-grid').innerHTML = chapters.join('');
 
     show('campaign');
     // Keep the level the player is actually on in view — by level 20 the grid is
@@ -150,6 +196,14 @@ export class CampaignScreen {
         // in a campaign it would quietly undo the player's build decisions,
         // which are the only thing they actually control here.
         drama: { comeback: false },
+        // No foraging either, for the same reason one step further on. Pellets
+        // pay out FREE REINFORCEMENTS (config.food.reinforceEvery), so a level
+        // could hand both colonies units the player never chose and never paid
+        // for — and hand the bigger colony more of them. It also broke the star
+        // rating outright: survivors are counted against what you deployed, and
+        // a colony that grew mid-fight could walk out with more bodies than it
+        // walked in with. tools/campaignProbe.js runs the same config.
+        food: { initial: 0, spawnEveryTicks: 0 },
         maxTicks: 60 * 80,
       },
       {
@@ -192,8 +246,13 @@ export class CampaignScreen {
     $('lr-tally').innerHTML = `
       <div><span class="v">${survivors}</span><span class="k">survivors</span></div>
       <div><span class="v">${kills}</span><span class="k">enemies slain</span></div>
-      <div><span class="v">${summary.durationSeconds}s</span><span class="k">duration</span></div>
+      <div><span class="v">${Number(summary.durationSeconds).toFixed(1)}s</span><span class="k">duration</span></div>
       ${won ? `<div><span class="v gain">+${report.coins}</span><span class="k">royal jelly</span></div>` : ''}`;
+
+    // On a loss, say exactly how close it was. "The colony breaks" with no number
+    // beside it reads as a wall; "2 of theirs left standing" reads as a puzzle
+    // that is nearly solved, which is the difference between a retry and a quit.
+    const enemyLeft = Object.values(summary.teams?.B?.species ?? {}).reduce((n, r) => n + (r.alive ?? 0), 0);
 
     // The reward beat. A granted species gets the whole line to itself — it is
     // the single most motivating thing that happens in a campaign level, and
@@ -201,10 +260,24 @@ export class CampaignScreen {
     const grantEl = $('lr-grant');
     if (report.granted) {
       const sp = this.byId.get(report.granted);
-      grantEl.hidden = false;
-      grantEl.innerHTML = `<span class="art">${thumbHtml(sp)}</span>
-        <span class="txt"><b>${escapeHtml(sp?.name ?? report.granted)}</b> joins your colony.
-        <em>${escapeHtml(sp?.ability?.name ? `${sp.ability.name} — ${sp.flavor || ''}` : sp?.flavor || '')}</em></span>`;
+      // The species' own ability line is the promise the card is making — it is
+      // what tells the player why the thing they just beat is worth having. The
+      // flavour text is the consolation prize for the handful with no ability.
+      const promise = sp?.ability
+        ? `<b class="ab-name">${escapeHtml(sp.ability.name)}</b> — ${escapeHtml(sp.ability.description || sp.flavor || '')}`
+        : escapeHtml(sp?.flavor ?? '');
+      // Replaced wholesale rather than refilled: a CSS animation only plays when
+      // the element enters the document, so reusing the node would grant the
+      // second species in total silence.
+      grantEl.outerHTML = `<div class="grant" id="lr-grant" ${tintStyle(sp)}>
+          <span class="art">${thumbHtml(sp)}</span>
+          <span class="txt">
+            <span class="role">${sp?.tier === 'champion' ? 'Bug acquired' : 'Ant acquired'}</span>
+            <b>${escapeHtml(sp?.name ?? report.granted)}</b>
+            joins your colony, permanently.
+            <em>${promise}</em>
+          </span>
+        </div>`;
     } else {
       grantEl.hidden = true;
     }
@@ -212,7 +285,10 @@ export class CampaignScreen {
     const note = $('lr-note');
     if (!won) {
       note.hidden = false;
-      note.textContent = 'Rebuild the lineup and try again — the same fight is waiting, so you can plan for it.';
+      note.textContent =
+        enemyLeft <= 2
+          ? `Close — ${enemyLeft} of theirs still standing. The same fight is waiting, so you can plan for it.`
+          : 'Rebuild the lineup and try again — the same fight is waiting, so you can plan for it.';
     } else if (report.campaignComplete) {
       note.hidden = false;
       note.textContent = 'Every chamber is yours. The whole roster is unlocked in the battle maker.';
@@ -237,10 +313,18 @@ export class CampaignScreen {
     const boostBtn = $('btn-lr-boost');
     const canBoost = !won && this.boost?.index !== lv.index;
     boostBtn.hidden = !canBoost;
-    boostBtn.textContent = `Watch an ad: +${Math.round(lv.budget * BOOST_FRACTION)} larvae next attempt`;
+    // Write the LABEL, not the button: `textContent` on the button itself wipes
+    // the video icon beside it, which the portal requires a rewarded prompt to
+    // carry.
+    boostBtn.querySelector('span').textContent =
+      `Watch an ad: +${Math.round(lv.budget * BOOST_FRACTION)} larvae next attempt`;
 
     show('levelresult');
-    if (won) portal.happytime();
+    // Confetti on the portal's own page. Reserved for the beats that earn it —
+    // a warlord chamber, or the end of the campaign. The portal asks for this
+    // explicitly ("the celebration should remain a special moment"), and firing
+    // it on every routine clear is what makes it stop meaning anything.
+    if (won && (lv.isBoss || report.campaignComplete)) portal.happytime();
   }
 
   // --- wiring ----------------------------------------------------------------

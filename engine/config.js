@@ -67,6 +67,37 @@ export const DEFAULT_CONFIG = Object.freeze({
 
   combat: {
     friendlyFire: false, // reserved: species AoE hooks respect team by default
+
+    /**
+     * How long a fight lasts, as a multiplier on every unit's health pool.
+     *
+     * This is a PACING dial, not a balance one. Every unit on the field is scaled
+     * by the same number, so relative strength — which is the only thing that
+     * decides a winner — is untouched; what changes is how many trades it takes
+     * to get there.
+     *
+     * It exists because the fights were resolving in a median of 5.9 seconds,
+     * with a third of them under three. At that speed two lines meet, everything
+     * dies at once, and the player never sees the thing they arranged actually
+     * happen: health bars never appear, most signature abilities never come off
+     * cooldown twice, and the score bar snaps from full to empty instead of being
+     * fought over.
+     *
+     * Health rather than damage or attack speed, deliberately:
+     *   - damage numbers on screen stay honest (a Bullet Ant still hits for 9);
+     *   - abilities are on cooldowns measured in SECONDS, so a longer fight
+     *     means more of them fire, which is where the spectacle is;
+     *   - nothing moves in slow motion, which is what dropping the time scale
+     *     would have done.
+     *
+     * Damage-over-time is absolute, so a DoT is slightly weaker relative to a
+     * bigger pool. That is real and it is why tools/campaignProbe.js has to be
+     * re-run after touching this — it is checked in at 2.0, which puts the
+     * campaign median at ~9s against ~6s before, with the longest fight still
+     * comfortably inside `maxTicks`. 2.4 reads better still but puts a wall back
+     * into the campaign, so this is the ceiling the probe allows.
+     */
+    pace: 2.0,
   },
 
   // Colony-wide modifiers applied to EVERY unit a team fields — the hook the

@@ -86,13 +86,23 @@ const dragonfly = {
         passes++;
         for (const victim of res?.hit ?? []) struck.add(victim.id);
 
+        // A `dash` effect is (x1,y1) -> (x2,y2). These were emitted as x/y/toX/toY,
+        // which the renderer reads as `undefined` — and an undefined coordinate
+        // reaching createRadialGradient throws mid-draw, leaving the canvas stuck
+        // in additive blend mode and whiting out the rest of the battle.
+        const x1 = res?.startX ?? self.x;
+        const y1 = res?.startY ?? self.y;
+        const x2 = res?.endX ?? self.x;
+        const y2 = res?.endY ?? self.y;
         ctx.spawnEffect({
           kind: 'dash',
-          x: res?.startX ?? self.x,
-          y: res?.startY ?? self.y,
-          toX: res?.endX ?? self.x,
-          toY: res?.endY ?? self.y,
+          x1,
+          y1,
+          x2,
+          y2,
+          speciesId: self.speciesId,
           team: self.team,
+          angle: Math.atan2(y2 - y1, x2 - x1),
         });
       }
 

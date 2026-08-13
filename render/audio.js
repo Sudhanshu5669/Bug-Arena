@@ -40,7 +40,8 @@ const DEFAULT_THROTTLE_MS = 55; // min gap between two plays of the SAME key
 export class ArenaAudio {
   constructor({ volume = 0.7, muted = false } = {}) {
     this.supported = typeof window !== 'undefined' && !!(window.AudioContext || window.webkitAudioContext);
-    this.muted = muted;
+    this.muted = muted; // the player's own sound toggle
+    this.adMuted = false; // held down for the length of an advertisement
     this.volume = volume;
 
     this.ctx = null;
@@ -61,15 +62,24 @@ export class ArenaAudio {
 
   _armGestureUnlock() {
     if (!this.supported || typeof window === 'undefined') return;
+    // `touchend` as well as `pointerdown`: iOS Safari will not start an
+    // AudioContext from anything but a completed touch, and the portal's own
+    // technical requirements call this out specifically. Listening for all three
+    // costs nothing and they all detach together on the first success.
+    const events = ['pointerdown', 'touchend', 'keydown'];
     const unlock = () => {
       this.resume();
       if (this.ctx && this.ctx.state === 'running') {
-        window.removeEventListener('pointerdown', unlock);
-        window.removeEventListener('keydown', unlock);
+        for (const e of events) window.removeEventListener(e, unlock);
       }
     };
-    window.addEventListener('pointerdown', unlock);
-    window.addEventListener('keydown', unlock);
+    for (const e of events) window.addEventListener(e, unlock);
+
+    // Coming back from a background tab or a phone call leaves the context
+    // suspended on iOS with no further gesture on the way.
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden && this.ctx?.state === 'suspended') this.resume();
+    });
   }
 
   /** Create the context on demand (safe to call repeatedly). */
@@ -78,7 +88,7 @@ export class ArenaAudio {
     const Ctor = window.AudioContext || window.webkitAudioContext;
     this.ctx = new Ctor();
     this.master = this.ctx.createGain();
-    this.master.gain.value = this.muted ? 0 : this.volume;
+    this.master.gain.value = this.muted || this.adMuted ? 0 : this.volume;
     this.master.connect(this.ctx.destination);
     return this.ctx;
   }
@@ -96,13 +106,31 @@ export class ArenaAudio {
 
   setMuted(muted) {
     this.muted = muted;
-    if (this.master) this.master.gain.value = muted ? 0 : this.volume;
+    this._applyGain();
     if (!muted) this.resume();
+  }
+
+  /**
+   * Silence for the duration of an ad, without touching the player's own choice.
+   *
+   * The portal requires the game to mute while an advertisement plays, and a
+   * naive `setMuted(true)` / `setMuted(false)` pair around it would turn the
+   * sound back ON for somebody who had deliberately turned it off. Two
+   * independent switches, one gain: sound comes back only if BOTH allow it.
+   */
+  setAdMuted(muted) {
+    this.adMuted = muted;
+    this._applyGain();
   }
 
   setVolume(v) {
     this.volume = Math.max(0, Math.min(1, v));
-    if (this.master && !this.muted) this.master.gain.value = this.volume;
+    this._applyGain();
+  }
+
+  _applyGain() {
+    if (!this.master) return;
+    this.master.gain.value = this.muted || this.adMuted ? 0 : this.volume;
   }
 
   /** One second of white noise, generated once and shared by every noise layer. */
@@ -131,7 +159,7 @@ export class ArenaAudio {
    *   throttleMs   override the default throttle window
    */
   play(recipe, opts = {}) {
-    if (!recipe || this.muted || !this.supported) return false;
+    if (!recipe || this.muted || this.adMuted || !this.supported) return false;
     this._ensureContext();
     if (!this.ready) return false; // still waiting on the user's first gesture
 

@@ -11,7 +11,9 @@ Four modes share one engine:
 - **Endless Descent** — the roguelite run. Draft under a budget, keep your
   survivors, take a mutation, go deeper. Fifteen chambers, one life.
 - **The sandbox** (`/sandbox.html`) — the original toy, with showreel framing and
-  camera tools for capturing video.
+  camera tools for capturing video. **Developer-only**: it has its own, entirely
+  different chrome, so it has no entry point in the game and `npm run build`
+  strips it from the shipped bundle. `npm start` still serves it.
 
 The **Hatchery** sells the twelve species the campaign never grants, for royal
 jelly earned by winning levels.
@@ -53,6 +55,12 @@ npm start
 # Check the campaign before you touch anything in it
 npm run levels      # the 30-level table, integrity checks, the economy
 npm run campaign    # play all 30 headlessly and report what is beatable
+
+# The gate before shipping: campaign beatable + build clean + game walkable
+npm run check
+
+# Look at it instead of guessing (writes .shots/, needs a local Chrome)
+npm run shots
 
 # Headless — runs a full battle in Node with NO browser/canvas/DOM.
 # This is the shape the video renderer uses.
@@ -215,10 +223,33 @@ strings, because an `img.src` resolves against the document, not the module.
 ### Shipping to CrazyGames
 
 `public/portal.js` wraps their SDK and no-ops when it is absent, so local, itch
-and desktop builds behave identically. To submit:
+and desktop builds behave identically.
 
-1. `npm run build`, then zip the **contents** of `dist/` (not the folder).
-2. Verify with `npm run serve:portal` first. If it works there, it works there.
+**`docs/SUBMISSION.md` is the checklist** — store copy, tags, art sizes, and the
+full SDK-call map, ready to paste into the developer portal. The short version:
+
+```bash
+npm run check      # campaign beatable + build passes portal checks + smoke test
+npm run package    # -> release/colony-gladiator.zip  (index.html at the root)
+npm run cover      # -> release/art/*.png  (cover, icon, screenshots)
+```
+
+`npm run build` refuses to produce a build that a portal would reject. It fails
+on a root-absolute URL, on a request to any host other than the SDK, on
+exceeding the 50 MB / 1500 file limits, and on a dangling reference to one of
+the developer-only files it strips (the technical sandbox and the two modules
+only it imports — a screen in a different visual language is exactly the kind of
+inconsistency a review marks down).
+
+`npm run smoke` then drives the whole game in a real browser at desktop and phone
+sizes, and fails on any console error, failed request, unreachable screen, or
+lost save. Run it against the **built** bundle on a subpath, which is the only
+honest test:
+
+```bash
+npm run build && npm run serve:portal
+SMOKE_BASE=http://localhost:4000/games/colony-gladiator/ node tools/smoke.js
+```
 
 What is already wired:
 
@@ -239,7 +270,19 @@ What is already wired:
   anti-wall: a player who cannot quite clear a chamber gets a concrete leg-up
   instead of being asked to grind a mode that has nothing left to give them. It
   is valid for one attempt at one level and is cleared by winning, so it can
-  never quietly re-tune the difficulty curve.
+  never quietly re-tune the difficulty curve. It carries a video icon, sits
+  *below* two free alternatives and is styled no louder than either, which is
+  what the portal asks of a rewarded prompt.
+- **Audio muted for the length of every ad**, on a channel separate from the
+  player's own sound toggle (`ArenaAudio.setAdMuted`) — so an ad can never
+  silently turn the sound back on for somebody who had switched it off.
+- **The portal's save store** (`SDK.data`), adopted by `game/save.js` the moment
+  the handshake resolves and *before the first read*, so a signed-in player's
+  progress follows them between devices. It falls back to `localStorage`, and
+  then to memory: a browser blocking third-party storage costs the player
+  persistence, never the game.
+- **`happytime()` only on warlord chambers and campaign completion.** The portal
+  asks for it to stay a special moment, and a campaign is thirty levels long.
 
 Everything the build loads is local — no CDN, no web fonts, no external requests
 of any kind beyond the SDK itself.

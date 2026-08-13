@@ -3,7 +3,7 @@
 // Stock, prices and the "is this earnable instead?" rule all come from
 // game/progress.js. This is a list with buttons on it.
 
-import { $, show, escapeHtml, thumbHtml, toast } from './ui.js';
+import { $, show, escapeHtml, setNum, thumbHtml, tintStyle, toast } from './ui.js';
 
 export class HatcheryScreen {
   constructor({ catalog, progress, persist, onHome }) {
@@ -21,7 +21,7 @@ export class HatcheryScreen {
 
   render() {
     const p = this.progress;
-    $('hatch-coins').textContent = p.coins;
+    setNum($('hatch-coins'), p.coins);
 
     const stock = p.shopStock();
     $('hatch-list').innerHTML = stock
@@ -29,7 +29,7 @@ export class HatcheryScreen {
         const sp = this.byId.get(item.id);
         const afford = p.coins >= item.price;
         const st = sp?.stats ?? {};
-        return `<div class="hatch-row ${item.owned ? 'owned' : afford ? '' : 'dim'}" data-sp="${item.id}">
+        return `<div class="hatch-row ${item.owned ? 'owned' : afford ? '' : 'dim'}" data-sp="${item.id}" ${tintStyle(sp)}>
             <span class="art">${thumbHtml(sp)}</span>
             <span class="info">
               <b>${escapeHtml(sp?.name ?? item.id)}</b>

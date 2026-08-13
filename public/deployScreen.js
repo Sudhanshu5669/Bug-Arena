@@ -7,7 +7,7 @@
 // config it was handed.
 
 import { DeployEditor } from './deployEditor.js';
-import { $, escapeHtml, thumbHtml, toast } from './ui.js';
+import { $, escapeHtml, setNum, thumbHtml, tintStyle, toast } from './ui.js';
 
 const REJECTION = {
   cap: 'The nest is full — no room for another body.',
@@ -96,7 +96,7 @@ export class DeployScreen {
       .sort((a, b) => b[1] - a[1])
       .map(([id, n]) => {
         const sp = this.byId.get(id);
-        return `<div class="lineup-row">
+        return `<div class="lineup-row" ${tintStyle(sp)}>
             <span class="art">${thumbHtml(sp)}</span>
             <span class="nm">${escapeHtml(sp?.name ?? id)}</span>
             <span class="ab">${sp?.ability ? escapeHtml(sp.ability.name) : '—'}</span>
@@ -123,7 +123,8 @@ export class DeployScreen {
             const price = prices[sp.id] ?? 0;
             const afford = this.editor.remainingBudget(team) >= price;
             const room = this.editor.countOf(team) < this.editor.limits[team].cap;
-            return `<div class="tcard ${brush === sp.id ? 'armed' : ''} ${n ? 'has' : ''} ${afford && room ? '' : 'dim'}" data-sp="${sp.id}">
+            return `<div class="tcard ${brush === sp.id ? 'armed' : ''} ${n ? 'has' : ''} ${afford && room ? '' : 'dim'}" data-sp="${sp.id}" ${tintStyle(sp)}>
+              <i class="tier-pip" aria-hidden="true"></i>
               <div class="art">${thumbHtml(sp)}</div>
               <div class="nm">${escapeHtml(sp.name)}</div>
               <div class="ab">${sp.ability ? escapeHtml(sp.ability.name) : 'No ability'}</div>
@@ -146,8 +147,18 @@ export class DeployScreen {
     const spent = this.editor.spentBy(team);
     const count = this.editor.countOf(team);
 
-    $('deploy-budget').textContent = Number.isFinite(lim.budget) ? `${lim.budget - spent}` : '∞';
-    $('deploy-cap').textContent = Number.isFinite(lim.cap) ? `${count}/${lim.cap}` : `${count}`;
+    const left = lim.budget - spent;
+    setNum($('deploy-budget'), Number.isFinite(lim.budget) ? `${left}` : '∞');
+    setNum($('deploy-cap'), Number.isFinite(lim.cap) ? `${count}/${lim.cap}` : `${count}`);
+
+    // Colour the two gauges the moment they stop being able to buy anything, so
+    // "why is every card dimmed" answers itself instead of needing arithmetic.
+    const cheapest = Math.min(
+      Infinity,
+      ...this.cfg.available.map((sp) => this.cfg.prices?.[sp.id] ?? 0)
+    );
+    $('gauge-budget')?.classList.toggle('spent', Number.isFinite(lim.budget) && left < cheapest);
+    $('gauge-cap')?.classList.toggle('spent', Number.isFinite(lim.cap) && count >= lim.cap);
 
     // The maker needs BOTH sides on the field; the campaign only needs yours.
     const ready = this.cfg.editableTeams.every((t) => this.editor.countOf(t) > 0);

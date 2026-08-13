@@ -5,7 +5,7 @@
 // whatever the campaign has already given you, so there is exactly one ledger of
 // what you own (game/progress.js) and one place it grows.
 
-import { $, show, escapeHtml, thumbHtml, toast } from './ui.js';
+import { $, show, escapeHtml, setNum, thumbHtml, tintStyle, toast } from './ui.js';
 import { startBattle } from './battle.js';
 import { Run } from './game/run.js';
 import { isBossDepth } from './game/campaign.js';
@@ -71,7 +71,7 @@ export class DescentScreen {
     tag.textContent = boss ? `Chamber ${run.depth} · Warlord` : `Chamber ${run.depth}`;
     tag.classList.toggle('boss', boss);
     $('draft-foe').textContent = enemy.name;
-    $('draft-purse').textContent = run.larvae;
+    setNum($('draft-purse'), run.larvae);
 
     $('specimens').innerHTML = run.available
       .filter((sp) => this.filter === 'all' || sp.tier === this.filter)
@@ -79,7 +79,8 @@ export class DescentScreen {
         const price = prices[sp.id];
         const owned = run.roster[sp.id] ?? 0;
         const st = sp.stats;
-        return `<div class="specimen ${owned ? 'owned' : ''} ${run.larvae < price && !owned ? 'unaffordable' : ''}" data-sp="${sp.id}">
+        return `<div class="specimen ${owned ? 'owned' : ''} ${run.larvae < price && !owned ? 'unaffordable' : ''}" data-sp="${sp.id}" ${tintStyle(sp)}>
+            <i class="tier-pip" aria-hidden="true"></i>
             <div class="art">${thumbHtml(sp)}</div>
             <div class="tier ${sp.tier}">${sp.tier === 'champion' ? 'Bug' : 'Ant'}</div>
             <div class="nm">${escapeHtml(sp.name)}</div>
@@ -106,7 +107,7 @@ export class DescentScreen {
       ? entries
           .map(([id, n]) => {
             const sp = this.byId.get(id);
-            return `<div class="roster-row" data-sp="${id}">
+            return `<div class="roster-row" data-sp="${id}" ${tintStyle(sp)}>
               <span class="dot" style="background:${sp?.visual?.color || '#888'}"></span>
               <span class="nm">${escapeHtml(sp?.name ?? id)}</span>
               <span class="n">×${n}</span>
@@ -116,9 +117,9 @@ export class DescentScreen {
           .join('')
       : '<div class="empty">No units drafted. A colony of nobody loses to anybody.</div>';
 
-    $('army-size').textContent = `${run.armySize}/${run.cap}`;
-    $('army-value').textContent = run.armyValue;
-    $('draft-purse').textContent = run.larvae;
+    setNum($('army-size'), `${run.armySize}/${run.cap}`);
+    setNum($('army-value'), run.armyValue);
+    setNum($('draft-purse'), run.larvae);
 
     const enemy = run.enemy;
     const ratio = run.armyValue / Math.max(1, enemy.budget);
@@ -190,7 +191,10 @@ export class DescentScreen {
 
     this.save();
     show('result');
-    portal.happytime();
+    // Warlord chambers only. The portal is explicit that its celebration should
+    // stay a special moment, and a run is fifteen chambers long — firing on every
+    // one would spend it three times before the player is properly started.
+    if (isBossDepth(run.depth)) portal.happytime();
   }
 
   showGameOver() {

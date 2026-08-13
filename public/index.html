@@ -9,8 +9,17 @@
       content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
     />
     <meta name="description" content="Draft an ant colony, arrange it on the sand, and fight thirty chambers deep." />
-    <meta name="theme-color" content="#16110d" />
+    <meta name="theme-color" content="#0b0806" />
     <title>Colony Gladiator</title>
+
+    <!-- Inline so it costs no request and cannot 404 from a portal subpath: a
+         browser asks for /favicon.ico at the SITE root, which on a portal is not
+         ours, and the resulting console error is the first thing a reviewer with
+         devtools open sees. An amber specimen on soil, matching the wordmark. -->
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%2316110d'/%3E%3Cg stroke='%23b8781a' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M13 14 6 10M13 17 5 17M13 20 6 25M19 14 26 10M19 17 27 17M19 20 26 25M14 8 12 3M18 8 20 3'/%3E%3C/g%3E%3Ccircle cx='16' cy='8' r='3.4' fill='%23ffb02e'/%3E%3Ccircle cx='16' cy='15' r='4' fill='%23ffb02e'/%3E%3Cellipse cx='16' cy='23' rx='5' ry='6' fill='%23ffd070'/%3E%3C/svg%3E"
+    />
 
     <link rel="stylesheet" href="./game.css" />
 
@@ -44,28 +53,39 @@
          sprite preload plus engine warm-up is otherwise a blank screen. -->
     <div id="boot">
       <div class="inner">
-        <div class="eyebrow">Colony Gladiator</div>
+        <div class="boot-sigil" aria-hidden="true"><i></i><i></i><i></i></div>
+        <div class="boot-word">Colony<em>Gladiator</em></div>
         <div class="bar"><i id="boot-bar"></i></div>
+        <div class="boot-note">Waking the colony…</div>
       </div>
     </div>
 
     <div id="app">
       <!-- ============================================================ TITLE -->
       <section class="screen active" id="screen-title">
+        <!-- Decorative drift of real specimen art, filled in by game.js. It is the
+             fastest way to tell a portal visitor what this game is about. -->
+        <div class="title-swarm" id="title-swarm" aria-hidden="true"></div>
+
         <div class="title-plate">
-          <div class="eyebrow">Formicarium · specimen trials</div>
-          <h1>Colony<em>Gladiator</em></h1>
-          <div class="title-rule"></div>
+          <div class="crest" aria-hidden="true">
+            <span class="crest-rule"></span>
+            <span class="crest-eye">Formicarium · specimen trials</span>
+            <span class="crest-rule"></span>
+          </div>
+
+          <h1 class="wordmark">Colony<em>Gladiator</em></h1>
+
           <p class="title-sub">
             Draft a colony, arrange it on the sand, and fight thirty chambers deep.
             Every specimen you beat is a specimen you keep.
           </p>
 
           <div class="meta-strip" id="title-meta">
-            <span>Rank <b id="title-rank">Larva</b></span>
-            <span>Chambers <b id="title-progress">0/30</b></span>
-            <span>Specimens <b id="title-species">2/44</b></span>
-            <span>Jelly <b id="title-coins">0</b></span>
+            <span class="meta"><i class="ic ic-rank" aria-hidden="true"></i><small>Rank</small><b id="title-rank">Larva</b></span>
+            <span class="meta"><i class="ic ic-depth" aria-hidden="true"></i><small>Chambers</small><b id="title-progress" class="num">0/30</b></span>
+            <span class="meta"><i class="ic ic-bug" aria-hidden="true"></i><small>Specimens</small><b id="title-species" class="num">2/44</b></span>
+            <span class="meta"><i class="ic ic-jelly" aria-hidden="true"></i><small>Jelly</small><b id="title-coins" class="num">0</b></span>
           </div>
 
           <div class="mode-grid">
@@ -75,7 +95,14 @@
             <button class="mode" id="btn-descent"></button>
           </div>
 
-          <button class="btn-ghost btn-small" id="btn-sandbox">Open the free sandbox</button>
+          <!-- The technical sandbox (public/sandbox.html) is a DEVELOPER tool with
+               its own, deliberately different, chrome. It is excluded from the
+               shipped build by tools/buildStatic.js and has no entry point here:
+               a portal judges a game on consistency, and the Battle Maker already
+               gives players free-build in the game's own language. -->
+          <div class="title-foot">
+            <button class="btn-ghost btn-small" id="btn-howto">How to play</button>
+          </div>
           <p class="warn" id="title-warn" hidden>Storage is blocked here — progress will not survive a reload.</p>
         </div>
       </section>
@@ -83,16 +110,16 @@
       <!-- ========================================================= CAMPAIGN -->
       <section class="screen" id="screen-campaign">
         <header class="topbar">
-          <button class="btn-small btn-ghost" id="btn-camp-back">‹ Menu</button>
+          <button class="btn-small btn-ghost btn-back" id="btn-camp-back"><span aria-hidden="true">‹</span> Menu</button>
           <div class="foe"><span>Campaign</span><small>thirty chambers</small></div>
           <div class="spacer"></div>
           <div class="stat-chips">
-            <span>Rank <b id="camp-rank">Larva</b></span>
-            <span>Cleared <b id="camp-cleared">0/30</b></span>
-            <span>Stars <b id="camp-stars">0/90</b></span>
-            <span>Jelly <b id="camp-coins">0</b></span>
+            <span class="chipstat"><small>Rank</small><b id="camp-rank">Larva</b></span>
+            <span class="chipstat"><small>Cleared</small><b id="camp-cleared" class="num">0/30</b></span>
+            <span class="chipstat"><small>Stars</small><b id="camp-stars" class="num">0/90</b></span>
+            <span class="chipstat jelly"><small>Jelly</small><b id="camp-coins" class="num">0</b></span>
           </div>
-          <button class="btn-small btn-primary" id="btn-camp-continue">Continue</button>
+          <button class="btn-small btn-primary" id="btn-camp-continue">Continue ›</button>
         </header>
         <div class="camp-body">
           <div class="camp-grid" id="camp-grid"></div>
@@ -102,12 +129,12 @@
       <!-- =========================================================== DEPLOY -->
       <section class="screen" id="screen-deploy">
         <header class="topbar">
-          <button class="btn-small btn-ghost" id="btn-deploy-back">‹ Back</button>
+          <button class="btn-small btn-ghost btn-back" id="btn-deploy-back"><span aria-hidden="true">‹</span> Back</button>
           <div class="foe"><span id="deploy-title">Deploy</span><small id="deploy-sub"></small></div>
           <div class="spacer"></div>
           <div class="deploy-counters">
-            <span class="purse"><span>larvae left</span> <b id="deploy-budget" class="num">0</b></span>
-            <span class="purse"><span>units</span> <b id="deploy-cap" class="num">0</b></span>
+            <span class="gauge" id="gauge-budget"><i class="ic ic-larva" aria-hidden="true"></i><small>larvae left</small><b id="deploy-budget" class="num">0</b></span>
+            <span class="gauge" id="gauge-cap"><i class="ic ic-ranks" aria-hidden="true"></i><small>units</small><b id="deploy-cap" class="num">0</b></span>
           </div>
         </header>
 
@@ -126,18 +153,20 @@
               <button class="btn-small" id="btn-deploy-auto">Tidy formation</button>
               <button class="btn-small" id="btn-deploy-clear">Clear</button>
               <div class="spacer"></div>
-              <button class="btn-primary" id="btn-deploy-fight" disabled>Start the fight</button>
+              <button class="btn-primary btn-fight" id="btn-deploy-fight" disabled>
+                <span>Start the fight</span>
+              </button>
             </div>
           </div>
 
           <aside class="deploy-side">
-            <div class="card" id="deploy-enemy-card">
-              <h3 id="deploy-enemy-name">Opposition</h3>
+            <div class="card enemy-card" id="deploy-enemy-card">
+              <h3 class="card-title threat"><span id="deploy-enemy-name">Opposition</span></h3>
               <div class="lineup" id="deploy-enemy"></div>
             </div>
             <div class="card grow">
               <div class="drawer-head">
-                <h3>Your specimens</h3>
+                <h3 class="card-title">Your specimens</h3>
                 <div class="filters" id="deploy-filters">
                   <button class="btn-small active" data-filter="all">All</button>
                   <button class="btn-small" data-filter="soldier">Ants</button>
@@ -154,10 +183,19 @@
       <!-- =========================================================== BATTLE -->
       <section class="screen" id="screen-battle">
         <div class="scorebar">
-          <span class="a num" id="score-a">0</span>
-          <div class="track"><i id="score-track"></i></div>
-          <span class="b num" id="score-b">0</span>
-          <span class="num" id="battle-clock" style="color: var(--faint)">0.0s</span>
+          <div class="side a">
+            <span class="tag">Your colony</span>
+            <span class="count num" id="score-a">0</span>
+          </div>
+          <div class="track" id="score-track-wrap">
+            <i id="score-track"></i>
+            <span class="notch" aria-hidden="true"></span>
+          </div>
+          <div class="side b">
+            <span class="count num" id="score-b">0</span>
+            <span class="tag">Opposition</span>
+          </div>
+          <span class="clock num" id="battle-clock">0.0s</span>
         </div>
 
         <div class="stage">
@@ -172,9 +210,9 @@
 
         <div class="battle-foot">
           <span class="battle-title" id="battle-title"></span>
+          <div class="spacer"></div>
           <button class="btn-small" id="btn-speed">Speed ×1</button>
           <button class="btn-small" id="btn-sound">Sound on</button>
-          <div class="spacer"></div>
           <button class="btn-small btn-primary" id="btn-skip">Skip to result</button>
         </div>
       </section>
@@ -188,10 +226,12 @@
           <div class="tally" id="lr-tally"></div>
           <div class="grant" id="lr-grant" hidden></div>
           <p class="plate-note" id="lr-note" hidden></p>
-          <div class="title-actions" style="max-width: 380px; margin: 18px auto 0">
+          <div class="title-actions">
             <button class="btn-primary" id="btn-lr-next">Next level</button>
             <button class="btn-ghost" id="btn-lr-retry">Replay this level</button>
-            <button class="btn-ghost btn-small" id="btn-lr-boost" hidden>Watch an ad for reinforcements</button>
+            <button class="btn-ghost btn-reward" id="btn-lr-boost" hidden>
+              <i class="ic ic-play" aria-hidden="true"></i><span>Watch an ad for reinforcements</span>
+            </button>
             <button class="btn-ghost btn-small" id="btn-lr-select">Level select</button>
           </div>
         </div>
@@ -200,10 +240,10 @@
       <!-- ========================================================= HATCHERY -->
       <section class="screen" id="screen-hatchery">
         <header class="topbar">
-          <button class="btn-small btn-ghost" id="btn-hatch-back">‹ Menu</button>
+          <button class="btn-small btn-ghost btn-back" id="btn-hatch-back"><span aria-hidden="true">‹</span> Menu</button>
           <div class="foe"><span>The Hatchery</span><small id="hatch-sub"></small></div>
           <div class="spacer"></div>
-          <div class="purse"><span>royal jelly</span> <b id="hatch-coins" class="num">0</b></div>
+          <div class="gauge jelly"><i class="ic ic-jelly" aria-hidden="true"></i><small>royal jelly</small><b id="hatch-coins" class="num">0</b></div>
         </header>
         <div class="hatch-body"><div class="hatch-list" id="hatch-list"></div></div>
       </section>
@@ -211,11 +251,11 @@
       <!-- ================================================== DESCENT · DRAFT -->
       <section class="screen" id="screen-draft">
         <header class="topbar">
-          <button class="btn-small btn-ghost" data-home>‹ Menu</button>
+          <button class="btn-small btn-ghost btn-back" data-home><span aria-hidden="true">‹</span> Menu</button>
           <span class="depth-tag" id="draft-depth">Chamber 1</span>
           <div class="foe"><span id="draft-foe">Scout Party</span><small>next opposition</small></div>
           <div class="spacer"></div>
-          <div class="purse"><span>larvae</span> <b id="draft-purse" class="num">60</b></div>
+          <div class="gauge"><i class="ic ic-larva" aria-hidden="true"></i><small>larvae</small><b id="draft-purse" class="num">60</b></div>
         </header>
 
         <div class="draft-body">
@@ -232,7 +272,7 @@
           </div>
 
           <aside class="colony">
-            <h3>Your colony</h3>
+            <h3 class="card-title">Your colony</h3>
             <div class="roster-list" id="roster-list"></div>
             <div class="colony-foot">
               <div class="strength">
@@ -255,7 +295,7 @@
           <h2 class="win" id="result-title">The colony holds</h2>
           <div class="tally" id="result-tally"></div>
           <p class="unlock-note" id="result-unlock" hidden></p>
-          <div class="eyebrow" style="margin-bottom: 10px">Choose a mutation</div>
+          <div class="eyebrow section-label">Choose a mutation</div>
           <div class="mutation-grid" id="mutation-grid"></div>
           <button class="btn-ghost btn-small" id="btn-skip-mutation">Take 12 larvae instead</button>
         </div>
@@ -268,7 +308,7 @@
           <h2 class="loss">The colony falls</h2>
           <p class="plate-note" id="over-sub"></p>
           <div class="tally" id="over-tally"></div>
-          <div class="title-actions" style="max-width: 320px; margin: 0 auto">
+          <div class="title-actions">
             <button class="btn-primary" id="btn-retry">Found a new colony</button>
             <button class="btn-ghost" id="btn-over-title">Back to menu</button>
           </div>
@@ -282,12 +322,29 @@
           <h2 class="win">The old queen falls</h2>
           <p class="plate-note" id="victory-sub"></p>
           <div class="tally" id="victory-tally"></div>
-          <div class="title-actions" style="max-width: 320px; margin: 0 auto">
+          <div class="title-actions">
             <button class="btn-primary" id="btn-ascend">Descend again, harder</button>
             <button class="btn-ghost" id="btn-victory-title">Back to menu</button>
           </div>
         </div>
       </section>
+    </div>
+
+    <!-- How-to-play sheet. A portal player has ~10 seconds of patience, so this is
+         four lines and a close button, not a tutorial. -->
+    <div class="sheet" id="howto" hidden>
+      <div class="sheet-inner">
+        <div class="eyebrow">How to play</div>
+        <h2>Three taps deep</h2>
+        <ol class="howto-list">
+          <li><b>Look at the opposition.</b> Their exact lineup is already standing on the right-hand sand before you spend anything.</li>
+          <li><b>Spend your larvae.</b> Drag specimens from the tray onto your half — or tap a card, then tap the sand.</li>
+          <li><b>Send them in.</b> The fight runs itself. You win it in the arranging, not the watching.</li>
+          <li><b>Keep what you beat.</b> Clearing a chamber hands you one of the species that was just fighting you. That is the only way to get them.</li>
+        </ol>
+        <p class="plate-note">Stars come from survivors, not speed — three stars needs 60% of your colony still standing.</p>
+        <button class="btn-primary" id="btn-howto-close">Got it</button>
+      </div>
     </div>
 
     <div class="toast" id="toast"></div>

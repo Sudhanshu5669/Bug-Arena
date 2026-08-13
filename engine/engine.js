@@ -355,6 +355,16 @@ export class BugArenaEngine extends EventEmitter {
     this.agents.push(agent);
     this.agentsById.set(agent.id, agent);
 
+    // The global pacing dial (see config.combat.pace). Applied BEFORE the team
+    // buff so a colony modifier stays a percentage of the paced pool rather than
+    // silently changing meaning when the dial moves.
+    const pace = this.config.combat?.pace ?? 1;
+    if (pace !== 1) {
+      agent.stats.maxHealth = Math.max(1, Math.round(agent.stats.maxHealth * pace));
+      agent.maxHealth = agent.stats.maxHealth;
+      agent.health = agent.maxHealth;
+    }
+
     this._applyTeamBuff(agent);
 
     species.hooks.on_spawn?.(agent, this.api);

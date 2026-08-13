@@ -73,7 +73,24 @@ const jackJumperAnt = {
         self
       );
 
-      ctx.spawnEffect({ kind: 'dash', x: self.x, y: self.y, team: self.team });
+      // The streak has to show WHERE it bounded to, so it is a line along the
+      // hop, not a point. Emitted with the same field names the renderer reads
+      // (x1/y1 -> x2/y2); a bare x/y left all four undefined, and undefined
+      // geometry reaching a canvas gradient throws mid-frame and leaves the
+      // arena stuck in additive blend. See tools/fxCheck.js.
+      //
+      // The endpoint is computed rather than read back: `push` is an impulse, so
+      // the body has not moved yet at this point in the tick.
+      ctx.spawnEffect({
+        kind: 'dash',
+        x1: self.x,
+        y1: self.y,
+        x2: self.x + Math.cos(a) * BOUND.HOP,
+        y2: self.y + Math.sin(a) * BOUND.HOP,
+        speciesId: self.speciesId,
+        team: self.team,
+        angle: a,
+      });
       return { bounding: true };
     },
   },

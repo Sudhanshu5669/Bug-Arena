@@ -7,13 +7,9 @@
 // branches on "are we on a portal" — it just reports events and asks for ads, and
 // this file decides whether anything happens.
 //
-// TO SUBMIT TO CRAZYGAMES, add their loader to index.html <head>:
-//
-//   <script src="https://sdk.crazygames.com/crazygames-sdk-v3.js"></script>
-//
-// It is deliberately NOT in index.html now: an external script that 404s or hangs
-// would delay first paint on every non-portal build, and the whole point of this
-// adapter is that its absence costs nothing.
+// The loader lives in index.html <head>, marked `async`, and boot() races the
+// handshake against a deadline (see withDeadline() in game.js). A 404 or a hang
+// therefore costs the player nothing at all.
 
 /** Resolve the SDK object if the portal injected one. */
 function sdk() {
@@ -24,10 +20,21 @@ function sdk() {
   }
 }
 
-/** Call an SDK method, swallowing anything it throws. Portal SDKs are not our code. */
+/** Set by init(): the SDK only accepts calls once the handshake has resolved. */
+let ready = false;
+
+/**
+ * Call an SDK method, swallowing anything it throws. Portal SDKs are not our code.
+ *
+ * Gated on `ready` as well as on the SDK existing. The loader is `async`, so the
+ * object can be on `window` a long time before `init()` resolves — and calling
+ * into it during that window makes the SDK log "CrazySDK is not initialized yet"
+ * to the console on every single event. Harmless, but a reviewer opening the
+ * console sees a broken integration, and the events are dropped anyway.
+ */
 function attempt(label, fn) {
   const s = sdk();
-  if (!s) return false;
+  if (!ready || !s) return false;
   try {
     fn(s);
     return true;
@@ -37,10 +44,41 @@ function attempt(label, fn) {
   }
 }
 
+/**
+ * Muted around every ad, then restored.
+ *
+ * Required by the portal ("mute your audio whenever an advertisement starts
+ * playing, and unmute it when the ad has finished"), and obviously right anyway:
+ * an arena full of chittering under a video ad is the fastest way to make a
+ * player reach for the tab close button. Injected rather than imported so this
+ * module keeps knowing nothing about the rest of the game.
+ */
+let audioGate = null;
+
 export const portal = {
-  /** True when a real portal SDK is present (used only for diagnostics). */
+  /** True when a real portal SDK is present and initialised. */
   get available() {
-    return sdk() !== null;
+    return ready && sdk() !== null;
+  },
+
+  /**
+   * 'local' | 'crazygames' | 'disabled' — what the SDK thinks it is running in.
+   * Diagnostics only; nothing in the game branches on it.
+   */
+  get environment() {
+    try {
+      return sdk()?.environment ?? 'none';
+    } catch {
+      return 'none';
+    }
+  },
+
+  /**
+   * Hand over the pair of functions used to silence the game around an ad.
+   * @param {{mute:() => void, unmute:() => void}} gate
+   */
+  setAudioGate(gate) {
+    audioGate = gate;
   },
 
   /** Called once before assets load. */
@@ -49,6 +87,7 @@ export const portal = {
     if (!s) return false;
     try {
       await s.init?.();
+      ready = true;
       s.game?.loadingStart?.();
       return true;
     } catch (err) {
@@ -76,9 +115,35 @@ export const portal = {
     attempt('gameplayStop', (s) => s.game?.gameplayStop?.());
   },
 
-  /** Fired when the player reaches a meaningful milestone. */
+  /**
+   * Fired when the player reaches a meaningful milestone; the portal throws
+   * confetti. Used sparingly — a warlord chamber and the end of the campaign,
+   * never a routine level clear, which is what the portal asks for.
+   */
   happytime() {
     attempt('happytime', (s) => s.game?.happytime?.());
+  },
+
+  /**
+   * The portal's cross-device save store, or null.
+   *
+   * For a signed-in player this syncs progress between their phone and their
+   * desktop; for a guest it is localStorage with extra steps. Either way it is
+   * the storage the portal expects a full-launch game to use, and it is the only
+   * thing that survives the third-party-cookie blocking that makes a raw
+   * `localStorage` access THROW inside a portal iframe.
+   *
+   * Only offered once init() has resolved — the module is not usable before that.
+   */
+  storage() {
+    if (!ready) return null;
+    const d = sdk()?.data;
+    if (!d || typeof d.getItem !== 'function' || typeof d.setItem !== 'function') return null;
+    return {
+      getItem: (k) => d.getItem(k),
+      setItem: (k, v) => d.setItem(k, v),
+      removeItem: (k) => d.removeItem?.(k),
+    };
   },
 
   /**
@@ -93,13 +158,26 @@ export const portal = {
    */
   requestAd(type = 'midgame') {
     const s = sdk();
-    if (!s?.ad?.requestAd) return Promise.resolve(false);
+    if (!ready || !s?.ad?.requestAd) return Promise.resolve(false);
 
     return new Promise((resolve) => {
       let settled = false;
+      let muted = false;
+
+      const unmute = () => {
+        if (!muted) return;
+        muted = false;
+        try {
+          audioGate?.unmute();
+        } catch {
+          /* the game's own audio is not worth failing an ad over */
+        }
+      };
+
       const finish = (ok) => {
         if (settled) return;
         settled = true;
+        unmute();
         resolve(ok);
       };
 
@@ -109,17 +187,31 @@ export const portal = {
 
       try {
         s.ad.requestAd(type, {
+          // Mute on START, not on request: an unfilled ad never starts, and
+          // silencing the game for one that never plays is a bug the player
+          // hears rather than sees.
+          adStarted: () => {
+            muted = true;
+            try {
+              audioGate?.mute();
+            } catch {
+              /* as above */
+            }
+          },
           adFinished: () => {
             clearTimeout(bail);
             finish(true);
           },
           adError: (err) => {
             clearTimeout(bail);
-            console.warn('[portal] ad error', err);
+            // 'unfilled' is the ordinary case, not a fault: the portal simply had
+            // nothing to show. Logged at debug volume so a console full of these
+            // never looks like a broken integration.
+            const code = err?.code ?? 'unknown';
+            if (code === 'unfilled') console.debug('[portal] no ad available');
+            else console.warn('[portal] ad error', err);
             finish(false);
           },
-          // Some SDK versions report a blocked/unavailable ad through this only.
-          adStarted: () => {},
         });
       } catch (err) {
         clearTimeout(bail);

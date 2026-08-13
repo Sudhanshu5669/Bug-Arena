@@ -81,12 +81,14 @@ const thiefAnt = {
       if (!worst) return {};
 
       ctx.heal(worst, LARCENY.STEAL * LARCENY.TRANSFER);
+      // A `nectar` arc runs (x1,y1) -> (x2,y2). It was emitting toX/toY, which
+      // the renderer never reads. See tools/fxCheck.js.
       ctx.spawnEffect({
         kind: 'nectar',
-        x: self.x,
-        y: self.y,
-        toX: worst.x,
-        toY: worst.y,
+        x1: self.x,
+        y1: self.y,
+        x2: worst.x,
+        y2: worst.y,
         team: self.team,
       });
 

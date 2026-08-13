@@ -75,7 +75,18 @@ const draculaAnt = {
         self
       );
 
-      ctx.spawnEffect({ kind: 'drain', x: self.x, y: self.y, team: self.team });
+      // `drain` is drawn as a line from the feeder to its victim, so it needs
+      // both ends. A single point left x1/y1/x2/y2 undefined, which the renderer
+      // cannot draw — and undefined geometry reaching a canvas gradient throws
+      // mid-frame and leaves the arena stuck in additive blend. See tools/fxCheck.js.
+      ctx.spawnEffect({
+        kind: 'drain',
+        x1: self.x,
+        y1: self.y,
+        x2: target?.x ?? self.x,
+        y2: target?.y ?? self.y,
+        team: self.team,
+      });
       return { fed: true };
     },
   },

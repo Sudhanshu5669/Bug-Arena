@@ -75,11 +75,31 @@ export function settle(team, arena, r, x, y, others) {
 /**
  * The next free formation slot for a unit of radius `r`.
  *
- * Fills from the FRONT of each zone backwards — A's rightmost column, B's
- * leftmost — so both armies form up on the line facing each other rather than
- * against their own back walls. Two squads that start a zone-width apart spend
- * the opening seconds walking, which is exactly the dead air the engine's
- * `startGap` control exists to remove; a default arrangement must not put it back.
+ * The zone's COLUMNS run toward the enemy and its ROWS run along the front, so
+ * a column is depth and a row is frontage. Two things have to be true at once:
+ *
+ *   The shape has to fight well. Filling one column to the full height of the
+ *   zone before starting the next put a nine-ant squad in SINGLE FILE wall to
+ *   wall. That looked like a bug — but it fought well, because a one-deep line
+ *   has every body in contact at once. Sizing the army as a tidy block instead
+ *   (a 4x3) looked far better and cost two campaign levels outright: a
+ *   three-deep formation leaves a third of its bodies standing behind the fight
+ *   doing nothing, which is a real strength cut, not a cosmetic one.
+ *
+ *   The shape has to be STABLE as it grows. The tray's `+` button calls this
+ *   once per unit, so if the target shape is recomputed from the current
+ *   headcount every time, each new unit shifts the band the previous ones were
+ *   placed in and sixteen taps produce a ragged smear rather than a formation.
+ *
+ * Both fall out of one fixed fill order: walk the rows outward from the middle
+ * of the zone, and within each row take the frontmost columns first, no more
+ * than `depth` of them. That is a line two ranks deep growing evenly out from
+ * the centre — the same sequence whether it is walked once or sixteen times, so
+ * the Nth unit always lands in the Nth slot.
+ *
+ * Front-first also matters on its own: two squads that start a zone-width apart
+ * spend the opening seconds walking, which is exactly the dead air the engine's
+ * `startGap` control exists to remove.
  */
 export function nextSlot(team, arena, r, others) {
   const z = zoneOf(team, arena);
@@ -87,14 +107,17 @@ export function nextSlot(team, arena, r, others) {
   const cols = Math.max(1, Math.floor((z.x1 - z.x0) / step));
   const rows = Math.max(1, Math.floor((z.y1 - z.y0) / step));
 
-  for (let c = 0; c < cols; c++) {
-    const col = team === 'A' ? cols - 1 - c : c;
-    for (let ri = 0; ri < rows; ri++) {
-      // Fill outward from the middle row, so a small squad forms a centred block
-      // instead of hugging the top wall.
-      const half = Math.floor(rows / 2);
-      const row = half + (ri % 2 === 0 ? ri / 2 : -Math.ceil(ri / 2));
-      if (row < 0 || row >= rows) continue;
+  // Two ranks, until the line runs out of frontage and has to thicken.
+  const depth = Math.min(cols, Math.max(2, Math.ceil((others.length + 1) / rows)));
+  const half = Math.floor(rows / 2);
+
+  for (let ri = 0; ri < rows; ri++) {
+    // Outward from the middle row, so a small squad forms a centred line
+    // instead of hugging the top wall.
+    const row = half + (ri % 2 === 0 ? ri / 2 : -Math.ceil(ri / 2));
+    if (row < 0 || row >= rows) continue;
+    for (let c = 0; c < depth; c++) {
+      const col = team === 'A' ? cols - 1 - c : c;
       const x = z.x0 + step * (col + 0.5);
       const y = z.y0 + step * (row + 0.5);
       if (x < z.x0 + r || x > z.x1 - r || y < z.y0 + r || y > z.y1 - r) continue;
@@ -109,9 +132,10 @@ export function nextSlot(team, arena, r, others) {
 /**
  * Lay a whole list out in formation.
  *
- * Champions take the front rank and the squad ranks up behind them, because
- * screening the big slow expensive thing behind a wall of ants is a real tactic
- * — so the DEFAULT arrangement should be the readable one, not the optimal one.
+ * Champions are laid down first and so take the centre of the line, with the
+ * squad filling outward along the front from there. Putting the big slow
+ * expensive things in the middle of a wall of ants is a real tactic — so the
+ * DEFAULT arrangement should be the readable one, not the optimal one.
  *
  * @param {string} team
  * @param {object} arena

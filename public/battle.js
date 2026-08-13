@@ -56,6 +56,7 @@ export function startBattle(config, { title = '', onEnd = null } = {}) {
   const init = engine.getInitPayload();
   if (!renderer) renderer = new CanvasRenderer($('arena'), init, { format: 'wide', showreel: true });
   else renderer.setInit(init);
+  fitArena();
 
   engine.on('snapshot', onSnapshot);
   engine.on('end', onEnd_);
@@ -155,7 +156,31 @@ export function abortBattle() {
   portal.gameplayStop();
 }
 
+/**
+ * Re-cut the render target to whatever shape the arena element currently is.
+ *
+ * Called when a battle starts and whenever the window changes shape. Debounced
+ * because rebuilding the backdrop is not free and an orientation change fires a
+ * burst of resize events.
+ */
+let fitTimer = 0;
+function fitArena() {
+  const el = $('arena');
+  if (!renderer || !el) return;
+  const r = el.getBoundingClientRect();
+  renderer.fitToBox(r.width, r.height);
+}
+
 function wireControls() {
+  window.addEventListener('resize', () => {
+    clearTimeout(fitTimer);
+    fitTimer = setTimeout(fitArena, 180);
+  });
+  window.addEventListener('orientationchange', () => {
+    clearTimeout(fitTimer);
+    fitTimer = setTimeout(fitArena, 320);
+  });
+
   $('btn-speed').addEventListener('click', () => {
     speed = speed === 1 ? 2 : speed === 2 ? 4 : 1;
     engine?.setTimeScale(speed);

@@ -31,11 +31,24 @@ const SPRITE_BASE = new URL('./assets/sprites', import.meta.url).href;
 
 /** Team colours, matched to the battle renderer so a lineup looks like itself. */
 const TEAM = {
-  A: { ring: '#4aa3ff', glow: 'rgba(74,163,255,0.20)', zone: 'rgba(74,163,255,0.055)', label: 'YOUR COLONY' },
-  B: { ring: '#ff5d73', glow: 'rgba(255,93,115,0.20)', zone: 'rgba(255,93,115,0.055)', label: 'OPPOSITION' },
+  A: { ring: '#4aa3ff', glow: 'rgba(74,163,255,0.22)', zone: 'rgba(74,163,255,0.075)', label: 'YOUR COLONY' },
+  B: { ring: '#ff5d73', glow: 'rgba(255,93,115,0.22)', zone: 'rgba(255,93,115,0.075)', label: 'OPPOSITION' },
 };
 
 let _seq = 0;
+
+/**
+ * Deterministic value noise, so the sand's grit is identical on every repaint.
+ *
+ * The editor redraws on every pointer move. Grit from `Math.random()` would boil
+ * — a field of speckles crawling under a dragged unit — which reads as the canvas
+ * being broken rather than as texture. Hashing the coordinate instead makes the
+ * floor a fixed thing the player is arranging units ON.
+ */
+function hash2(x, y) {
+  const n = Math.sin(x * 127.1 + y * 311.7) * 43758.5453;
+  return n - Math.floor(n);
+}
 
 export class DeployEditor {
   /**
@@ -294,6 +307,17 @@ export class DeployEditor {
     };
 
     c.addEventListener('pointerdown', this._onDown);
+    // A ResizeObserver, not just the window event: the canvas is laid out AFTER
+    // open() constructs this (the deploy screen is still hidden at that point),
+    // so the first real size only arrives once the screen is shown — and it also
+    // changes when the sidebar reflows at a breakpoint, which fires no resize.
+    if (typeof ResizeObserver !== 'undefined') {
+      this._ro = new ResizeObserver(() => {
+        this._sizeCanvas();
+        this._paint();
+      });
+      this._ro.observe(c);
+    }
     // Move/up live on the window so a drag that leaves the canvas — which every
     // remove gesture does by definition — still tracks and still completes.
     window.addEventListener('pointermove', this._onMove, { passive: false });
@@ -309,6 +333,8 @@ export class DeployEditor {
   destroy() {
     this._alive = false;
     cancelAnimationFrame(this._raf);
+    this._ro?.disconnect();
+    this._ro = null;
     this.canvas.removeEventListener('pointerdown', this._onDown);
     window.removeEventListener('pointermove', this._onMove);
     window.removeEventListener('pointerup', this._onUp);
@@ -429,13 +455,28 @@ export class DeployEditor {
 
   // --- internals: drawing ----------------------------------------------------
 
+  /**
+   * Match the backing store to how big the canvas is actually being DISPLAYED.
+   *
+   * Sizing it to the arena's logical dimensions instead meant a 1180px-wide sand
+   * on a desktop was an 820px image stretched up — soft edges on every sprite and
+   * a visibly fuzzy dashed zone border, on the screen the player spends most of
+   * their time looking at. Capped so a 4K monitor does not rasterize a canvas
+   * nobody asked for.
+   */
   _sizeCanvas() {
-    // Backing store at up to 2x the arena's logical size: sharp on a phone
-    // without paying 3x the fill rate on a high-DPR desktop for a static scene.
+    const MAX_BACKING = 2400;
     const dpr = Math.min(2, window.devicePixelRatio || 1);
-    this.canvas.width = Math.round(this.arena.width * dpr);
-    this.canvas.height = Math.round(this.arena.height * dpr);
-    this._dpr = dpr;
+    // Before first layout the element has no box; the arena's own size is the
+    // right guess and the resize handler corrects it a frame later.
+    const cssW = this.canvas.getBoundingClientRect().width || this.arena.width;
+    const w = Math.min(MAX_BACKING, Math.max(320, Math.round(cssW * dpr)));
+
+    this.canvas.width = w;
+    this.canvas.height = Math.round((w * this.arena.height) / this.arena.width);
+    // Everything below draws in ARENA coordinates; this is the one place that
+    // knows how many device pixels one of those is worth.
+    this._scale = this.canvas.width / this.arena.width;
   }
 
   _paint() {
@@ -448,49 +489,131 @@ export class DeployEditor {
     const ctx = this.ctx;
     const { width: W, height: H, wallThickness: t } = this.arena;
     ctx.save();
-    ctx.setTransform(this._dpr, 0, 0, this._dpr, 0, 0);
+    ctx.setTransform(this._scale, 0, 0, this._scale, 0, 0);
     ctx.clearRect(0, 0, W, H);
 
-    // Floor
-    const g = ctx.createRadialGradient(W / 2, H / 2, 40, W / 2, H / 2, Math.max(W, H) * 0.7);
-    g.addColorStop(0, '#5b4530');
-    g.addColorStop(1, '#33261a');
+    // --- the sand ------------------------------------------------------------
+    // Lit from above like the pit it is, with grit and a few scuff arcs so it is
+    // a SURFACE rather than a gradient. The player stares at this rectangle for
+    // longer than any other pixel in the game.
+    const g = ctx.createRadialGradient(W / 2, H * 0.36, 40, W / 2, H / 2, Math.max(W, H) * 0.72);
+    g.addColorStop(0, '#6a5138');
+    g.addColorStop(0.55, '#4a3826');
+    g.addColorStop(1, '#2b2015');
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, W, H);
 
-    // Deploy zones
+    // grit
+    for (let i = 0; i < 520; i++) {
+      const x = hash2(i, 1) * W;
+      const y = hash2(i, 2) * H;
+      const a = hash2(i, 3);
+      ctx.fillStyle = a > 0.5 ? `rgba(255,231,190,${0.05 + a * 0.05})` : `rgba(0,0,0,${0.05 + a * 0.09})`;
+      ctx.fillRect(x, y, 1 + (a > 0.85 ? 1 : 0), 1);
+    }
+
+    // drag scuffs — the marks of every fight that came before this one
+    ctx.strokeStyle = 'rgba(0,0,0,0.07)';
+    ctx.lineWidth = 3;
+    for (let i = 0; i < 14; i++) {
+      const x = hash2(i, 11) * W;
+      const y = hash2(i, 12) * H;
+      const r = 22 + hash2(i, 13) * 70;
+      const a0 = hash2(i, 14) * Math.PI * 2;
+      ctx.beginPath();
+      ctx.arc(x, y, r, a0, a0 + 0.7 + hash2(i, 15));
+      ctx.stroke();
+    }
+
+    // --- deploy zones --------------------------------------------------------
     for (const team of ['A', 'B']) {
       const z = this.zoneOf(team);
       const editable = this.editableTeams.has(team);
-      ctx.fillStyle = TEAM[team].zone;
-      ctx.fillRect(z.x0, z.y0, z.x1 - z.x0, z.y1 - z.y0);
-      ctx.setLineDash([9, 8]);
-      ctx.lineWidth = 2;
-      ctx.strokeStyle = editable && team === this.activeTeam ? TEAM[team].ring : 'rgba(255,255,255,0.13)';
-      ctx.strokeRect(z.x0, z.y0, z.x1 - z.x0, z.y1 - z.y0);
-      ctx.setLineDash([]);
+      const live = editable && team === this.activeTeam;
+      const zw = z.x1 - z.x0;
+      const zh = z.y1 - z.y0;
 
-      ctx.font = '600 15px ui-sans-serif, system-ui, sans-serif';
-      ctx.fillStyle = editable && team === this.activeTeam ? TEAM[team].ring : 'rgba(255,255,255,0.30)';
+      // A gradient that fades toward no-man's-land, so the two halves read as
+      // territory rather than as two boxes drawn on a floor.
+      const zg = ctx.createLinearGradient(team === 'A' ? z.x0 : z.x1, 0, team === 'A' ? z.x1 : z.x0, 0);
+      zg.addColorStop(0, TEAM[team].zone);
+      zg.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = zg;
+      ctx.fillRect(z.x0, z.y0, zw, zh);
+
+      ctx.save();
+      ctx.setLineDash([10, 9]);
+      ctx.lineWidth = live ? 2.5 : 2;
+      ctx.strokeStyle = live ? TEAM[team].ring : 'rgba(255,255,255,0.15)';
+      if (live) {
+        ctx.shadowColor = TEAM[team].ring;
+        ctx.shadowBlur = 12;
+      }
+      ctx.strokeRect(z.x0, z.y0, zw, zh);
+      ctx.restore();
+
+      // Corner brackets: a HUD tell that this rectangle is a place you act in.
+      const c = 18;
+      ctx.strokeStyle = live ? TEAM[team].ring : 'rgba(255,255,255,0.22)';
+      ctx.lineWidth = 3;
+      ctx.setLineDash([]);
+      for (const [cx, cy, sx, sy] of [
+        [z.x0, z.y0, 1, 1],
+        [z.x1, z.y0, -1, 1],
+        [z.x0, z.y1, 1, -1],
+        [z.x1, z.y1, -1, -1],
+      ]) {
+        ctx.beginPath();
+        ctx.moveTo(cx + sx * c, cy);
+        ctx.lineTo(cx, cy);
+        ctx.lineTo(cx, cy + sy * c);
+        ctx.stroke();
+      }
+
+      ctx.font = '700 13px ui-monospace, "Cascadia Mono", Consolas, monospace';
+      ctx.fillStyle = live ? TEAM[team].ring : 'rgba(255,255,255,0.34)';
       ctx.textAlign = team === 'A' ? 'left' : 'right';
-      ctx.textBaseline = 'top';
-      ctx.fillText(TEAM[team].label, team === 'A' ? z.x0 + 6 : z.x1 - 6, z.y0 + 6);
+      ctx.textBaseline = 'bottom';
+      ctx.letterSpacing = '2px';
+      ctx.fillText(TEAM[team].label, team === 'A' ? z.x0 + 2 : z.x1 - 2, z.y0 - 7);
+      ctx.letterSpacing = '0px';
     }
 
-    // Centre line
-    ctx.strokeStyle = 'rgba(255,255,255,0.09)';
+    // --- no-man's-land -------------------------------------------------------
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255,255,255,0.10)';
     ctx.lineWidth = 2;
-    ctx.setLineDash([4, 10]);
+    ctx.setLineDash([5, 11]);
     ctx.beginPath();
     ctx.moveTo(W / 2, t);
     ctx.lineTo(W / 2, H - t);
     ctx.stroke();
-    ctx.setLineDash([]);
+    ctx.restore();
 
-    // Walls
-    ctx.strokeStyle = '#2a1e14';
+    // --- walls ---------------------------------------------------------------
+    // Stone rather than a flat stroke: a lit inner lip, a dark body, and seams.
+    ctx.strokeStyle = '#241a11';
     ctx.lineWidth = t;
     ctx.strokeRect(t / 2, t / 2, W - t, H - t);
+    ctx.strokeStyle = 'rgba(255,214,150,0.10)';
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(t, t, W - t * 2, H - t * 2);
+    ctx.strokeStyle = 'rgba(0,0,0,0.4)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let x = t * 2; x < W - t; x += 46) {
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, t);
+      ctx.moveTo(x + 23, H - t);
+      ctx.lineTo(x + 23, H);
+    }
+    for (let y = t * 2; y < H - t; y += 46) {
+      ctx.moveTo(0, y);
+      ctx.lineTo(t, y);
+      ctx.moveTo(W - t, y + 23);
+      ctx.lineTo(W, y + 23);
+    }
+    ctx.stroke();
 
     // Units
     const dragged = this._drag?.kind === 'move' ? this._drag.unit : null;
@@ -515,12 +638,56 @@ export class DeployEditor {
     // Empty-field hint, so a first-time player is never looking at a blank floor
     // with no idea what is being asked of them.
     if (!this.units.some((u) => this.editableTeams.has(u.team))) {
-      ctx.fillStyle = 'rgba(255,255,255,0.34)';
-      ctx.font = '500 17px ui-sans-serif, system-ui, sans-serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
       const z = this.zoneOf(this.activeTeam);
-      ctx.fillText('Drag a specimen here, or tap one then tap the floor', (z.x0 + z.x1) / 2, H / 2);
+      const cx = (z.x0 + z.x1) / 2;
+      const cy = H / 2;
+      ctx.save();
+      ctx.textAlign = 'center';
+
+      // A dashed target with the instruction under it. Two short lines, because
+      // one long one wrapped off the zone on a phone.
+      ctx.setLineDash([6, 6]);
+      ctx.strokeStyle = 'rgba(255,255,255,0.26)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(cx, cy - 34, 26, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.strokeStyle = 'rgba(255,255,255,0.34)';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(cx, cy - 48);
+      ctx.lineTo(cx, cy - 20);
+      ctx.moveTo(cx - 14, cy - 34);
+      ctx.lineTo(cx + 14, cy - 34);
+      ctx.stroke();
+
+      // Sized against the ZONE, not the canvas: the hint has to fit inside the
+      // player's own half, and on a phone that half is about 290 arena units
+      // wide — narrow enough that a fixed 14px sub-line ran out past the dashed
+      // border and read as a rendering fault.
+      const zw = z.x1 - z.x0;
+      const fit = (text, px) => {
+        let size = px;
+        ctx.font = `500 ${size}px ui-sans-serif, system-ui, sans-serif`;
+        while (size > 9 && ctx.measureText(text).width > zw - 20) {
+          size -= 1;
+          ctx.font = `500 ${size}px ui-sans-serif, system-ui, sans-serif`;
+        }
+        return size;
+      };
+
+      const sub = 'drag one from the tray, or tap a card then tap here';
+      ctx.fillStyle = 'rgba(255,255,255,0.62)';
+      ctx.textBaseline = 'top';
+      const head = fit('Put your colony here', 19);
+      ctx.font = `650 ${head}px ui-sans-serif, system-ui, sans-serif`;
+      ctx.fillText('Put your colony here', cx, cy + 6);
+
+      ctx.fillStyle = 'rgba(255,255,255,0.38)';
+      fit(sub, 13);
+      ctx.fillText(sub, cx, cy + head + 13);
+      ctx.restore();
     }
 
     ctx.restore();
@@ -532,25 +699,36 @@ export class DeployEditor {
     const r = this._radius(sp);
     const col = TEAM[u.team];
 
-    // Shadow
+    // Shadow, cast away from the light at the top of the pit.
     ctx.save();
-    ctx.fillStyle = 'rgba(0,0,0,0.32)';
+    ctx.fillStyle = 'rgba(0,0,0,0.38)';
     ctx.beginPath();
-    ctx.ellipse(u.x, u.y + r * 0.55, r * 1.05, r * 0.5, 0, 0, Math.PI * 2);
+    ctx.ellipse(u.x, u.y + r * 0.7, r * 1.15, r * 0.52, 0, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
 
-    // Team footprint
+    // Team footprint: a filled disc under the sprite plus a ring around it. The
+    // disc is what makes a 30-unit field readable — at a glance you see two
+    // coloured masses, and only then which species they are made of.
     ctx.save();
-    ctx.fillStyle = col.glow;
+    const rr = r * 1.55;
+    const disc = ctx.createRadialGradient(u.x, u.y, 0, u.x, u.y, rr);
+    disc.addColorStop(0, col.glow);
+    disc.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = disc;
     ctx.beginPath();
-    ctx.arc(u.x, u.y, r * 1.5, 0, Math.PI * 2);
+    ctx.arc(u.x, u.y, rr, 0, Math.PI * 2);
     ctx.fill();
+
     ctx.strokeStyle = col.ring;
-    ctx.lineWidth = highlighted ? 3 : 1.6;
-    ctx.globalAlpha = highlighted ? 1 : 0.75;
+    ctx.lineWidth = highlighted ? 3 : 1.8;
+    ctx.globalAlpha = highlighted ? 1 : 0.72;
+    if (highlighted) {
+      ctx.shadowColor = col.ring;
+      ctx.shadowBlur = 10;
+    }
     ctx.beginPath();
-    ctx.arc(u.x, u.y, r * 1.5, 0, Math.PI * 2);
+    ctx.arc(u.x, u.y, rr, 0, Math.PI * 2);
     ctx.stroke();
     ctx.restore();
 

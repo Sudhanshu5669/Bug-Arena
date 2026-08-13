@@ -1,7 +1,7 @@
 {
   "name": "colony-gladiator",
   "version": "1.0.0",
-  "description": "Colony Gladiator — a bug-battle campaign, battle maker and sandbox on one deterministic simulation engine.",
+  "description": "Colony Gladiator \u2014 a bug-battle campaign, battle maker and sandbox on one deterministic simulation engine.",
   "type": "module",
   "main": "engine/index.js",
   "scripts": {
@@ -18,7 +18,13 @@
     "sprites:svg": "node tools/rasterizeSvgs.js",
     "sprites:pixel": "node tools/genPlaceholderSprites.js",
     "levels": "node tools/levelReport.js",
-    "campaign": "node tools/campaignProbe.js"
+    "campaign": "node tools/campaignProbe.js",
+    "smoke": "node tools/smoke.js",
+    "shots": "node tools/shots.js",
+    "cover": "node tools/cover.js",
+    "package": "node tools/buildStatic.js && node tools/package.js",
+    "check": "node tools/fxCheck.js && node tools/campaignProbe.js && node tools/buildStatic.js && node tools/smoke.js",
+    "fx": "node tools/fxCheck.js"
   },
   "engines": {
     "node": ">=18"
@@ -34,5 +40,8 @@
   "dependencies": {
     "express": "^4.19.2",
     "matter-js": "^0.20.0"
+  },
+  "devDependencies": {
+    "puppeteer-core": "^25.6.0"
   }
 }

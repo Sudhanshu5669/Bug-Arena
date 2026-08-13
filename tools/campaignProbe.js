@@ -26,7 +26,7 @@ import { buildLevels, STARTER_SPECIES } from '../game/levels.js';
 import { costOf, powerScore } from '../game/economy.js';
 import { layout } from '../game/formation.js';
 
-const ARENA = { width: 960, height: 600, wallThickness: 24 };
+const ARENA = { width: 820, height: 520, wallThickness: 22 };
 const VERBOSE = process.argv.includes('--verbose');
 
 const catalog = getCatalog();
@@ -148,6 +148,13 @@ function play(level, roster) {
     teams: { custom: { A: place('A', roster), B: place('B', level.enemy) } },
     teamBuffs: { A: null, B: level.buff },
     drama: { comeback: false },
+    // Must match public/campaignScreen.js exactly — see the note there. A probe
+    // that measured a different fight from the one the player plays is worse
+    // than no probe.
+    food: { initial: 0, spawnEveryTicks: 0 },
+    // combat.pace (engine/config.js) is deliberately NOT overridden here: how
+    // long a fight lasts changes which of them are winnable, so the probe has to
+    // measure the pacing the player actually gets.
     maxTicks: 60 * 80,
   });
 

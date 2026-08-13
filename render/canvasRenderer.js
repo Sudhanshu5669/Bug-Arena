@@ -30,8 +30,8 @@ import { preloadSprites } from './spriteLoader.js';
 const SPRITE_BASE = new URL('../assets/sprites', import.meta.url).href;
 
 const TEAM = {
-  A: { ring: '#4ea1ff', glow: 'rgba(78,161,255,0.55)' },
-  B: { ring: '#ff5d73', glow: 'rgba(255,93,115,0.55)' },
+  A: { ring: '#4ea1ff', glow: 'rgba(78,161,255,0.34)' },
+  B: { ring: '#ff5d73', glow: 'rgba(255,93,115,0.34)' },
 };
 // At most this many ability tags float at once — past a handful they stop being
 // readable and just smear over the fight.
@@ -209,6 +209,45 @@ export class CanvasRenderer {
     }
   }
 
+  /**
+   * Match the render target to the shape of the box the canvas is displayed in.
+   *
+   * The battle canvas was a fixed 1280x720 letterboxed with `object-fit`, which
+   * on a phone held upright meant two thirds of the screen was flat black bars
+   * above and below a small strip of arena. Most portal traffic is exactly that
+   * device. Re-cutting the render target to the viewport's own aspect instead
+   * fills the screen with the stadium: the arena still fits inside (the camera
+   * frames it), but the space around it is dressed floor and vignette rather
+   * than nothing at all.
+   *
+   * Bounded to a sane long edge so a desktop does not rasterize a 4K backdrop,
+   * and ignored unless the aspect actually moved — `_buildBackground()` redraws
+   * several thousand speckles and is not something to run on every resize tick.
+   *
+   * @param {number} cssW  displayed width in CSS pixels
+   * @param {number} cssH  displayed height in CSS pixels
+   */
+  fitToBox(cssW, cssH) {
+    if (!(cssW > 0) || !(cssH > 0) || !this.arena) return;
+
+    const aspect = cssW / cssH;
+    const prev = this.RENDER_W / this.RENDER_H;
+    if (Math.abs(aspect - prev) / prev < 0.02) return;
+
+    const LONG = 1280;
+    const w = aspect >= 1 ? LONG : Math.round(LONG * aspect);
+    const h = aspect >= 1 ? Math.round(LONG / aspect) : LONG;
+
+    this.format = 'custom';
+    this.RENDER_W = Math.max(320, w);
+    this.RENDER_H = Math.max(320, h);
+    this.canvas.width = this.RENDER_W;
+    this.canvas.height = this.RENDER_H;
+    this._cam = null; // re-frame from scratch for the new aspect
+    this._setupCamera();
+    this._buildBackground();
+  }
+
   setCameraFollow(on) {
     this.cameraFollow = !!on;
   }
@@ -369,13 +408,20 @@ export class CanvasRenderer {
       const sdY = Math.sqrt(varY / sumW);
 
       // Frame ~2.2 standard deviations, with a floor so it never over-zooms.
-      const needW = Math.max(220, sdX * 4.4 + 140);
-      const needH = Math.max(220, sdY * 4.4 + 140);
+      //
+      // The floor and the ceiling are both deliberately conservative. A camera
+      // that punches all the way in on a four-bug scrum fills the screen with
+      // empty sand and throws away the thing the player actually came to watch —
+      // two armies, and which one is winning. 380 scene units and 2x are roughly
+      // "half the arena", which keeps the shape of the battle on screen while
+      // still moving in for a duel.
+      const needW = Math.max(300, sdX * 4.4 + 190);
+      const needH = Math.max(300, sdY * 4.4 + 190);
       const want = Math.min(cw / needW, ch / needH);
       target = {
         cx,
         cy,
-        scale: Math.max(this.baseScale, Math.min(this.baseScale * 3.2, want)),
+        scale: Math.max(this.baseScale, Math.min(this.baseScale * 2.4, want)),
       };
     }
 
@@ -479,15 +525,56 @@ export class CanvasRenderer {
     c.clip();
     const cx = ax + sw / 2;
     const cy = ay + sh / 2;
-    const sand = c.createRadialGradient(cx, cy * 0.98, sw * 0.05, cx, cy, Math.max(sw, sh) * 0.72);
-    sand.addColorStop(0, '#d8b483');
-    sand.addColorStop(0.55, '#bd925f');
-    sand.addColorStop(1, '#7f5433');
+    // The floor is a pit lit by four corner torches, not a beach. The old ramp
+    // topped out at #d8b483, which is brighter than every sprite in the game —
+    // so the bugs, the damage numbers and the team rings all had to fight the
+    // ground for attention, and the arena read as a different game from the menu
+    // wrapped around it. Dropping it two stops puts the light back on the fight
+    // and lines the arena up with the UI palette.
+    const sand = c.createRadialGradient(cx, cy * 0.96, sw * 0.05, cx, cy, Math.max(sw, sh) * 0.74);
+    sand.addColorStop(0, '#8d6b45');
+    sand.addColorStop(0.5, '#6a5034');
+    sand.addColorStop(1, '#372718');
     c.fillStyle = sand;
     c.fillRect(ax, ay, sw, sh);
-    this._speckle(c, ax, ay, sw, sh, 4200, 'rgba(60,38,20,0.16)');
-    this._speckle(c, ax, ay, sw, sh, 2600, 'rgba(255,240,210,0.10)');
+
+    // Large-scale mottling. Speckle alone is invisible once the action camera
+    // punches in — the floor became a flat pane of brown at exactly the moment
+    // the player was looking hardest at it. Blotches survive the zoom and give
+    // the camera something to move ACROSS.
+    for (let i = 0; i < 26; i++) {
+      const bx = ax + rand01(i * 7 + 1) * sw;
+      const by = ay + rand01(i * 7 + 2) * sh;
+      const br = 40 + rand01(i * 7 + 3) * 130;
+      const dark = rand01(i * 7 + 4) > 0.5;
+      const blot = c.createRadialGradient(bx, by, 0, bx, by, br);
+      blot.addColorStop(0, dark ? 'rgba(40,26,12,0.20)' : 'rgba(226,190,140,0.11)');
+      blot.addColorStop(1, 'rgba(0,0,0,0)');
+      c.fillStyle = blot;
+      c.beginPath();
+      c.arc(bx, by, br, 0, Math.PI * 2);
+      c.fill();
+    }
+
+    this._speckle(c, ax, ay, sw, sh, 4200, 'rgba(30,18,8,0.22)');
+    this._speckle(c, ax, ay, sw, sh, 2600, 'rgba(255,236,200,0.08)');
     this._scuffs(c, cx, cy, sw, sh);
+    this._pitMarkings(c, ax, ay, sw, sh);
+
+    // Torchlight pooling in from the four corners: warm, and it gives the floor
+    // somewhere to be dark, which the flat radial never did.
+    for (const [tx, ty] of [
+      [ax, ay],
+      [ax + sw, ay],
+      [ax, ay + sh],
+      [ax + sw, ay + sh],
+    ]) {
+      const pool = c.createRadialGradient(tx, ty, 0, tx, ty, Math.min(sw, sh) * 0.55);
+      pool.addColorStop(0, 'rgba(255,168,74,0.16)');
+      pool.addColorStop(1, 'rgba(255,150,60,0)');
+      c.fillStyle = pool;
+      c.fillRect(ax, ay, sw, sh);
+    }
     c.strokeStyle = 'rgba(0,0,0,0.38)';
     c.lineWidth = 16;
     roundRect(c, ax + 8, ay + 8, sw - 16, sh - 16, cornerFloor);
@@ -515,13 +602,40 @@ export class CanvasRenderer {
     chrome.width = W;
     chrome.height = H;
     const k = chrome.getContext('2d');
-    const back = k.createLinearGradient(0, 0, 0, H);
-    back.addColorStop(0, '#0d0b09');
-    back.addColorStop(0.55, '#16110c');
-    back.addColorStop(1, '#0a0806');
+    // The surround the arena sits inside.
+    //
+    // This is whatever is left over once the arena has been fitted into the
+    // frame, and on a phone held upright that is a third of the screen. Painting
+    // it near-black gave the battle two dead bars; painting it as the earth the
+    // pit was dug out of, with the corner torches bleeding into it, makes the
+    // same pixels read as the place the fight is happening in.
+    const back = k.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.25, W / 2, H / 2, Math.max(W, H) * 0.8);
+    back.addColorStop(0, '#241a12');
+    back.addColorStop(0.6, '#150f0a');
+    back.addColorStop(1, '#0a0705');
     k.fillStyle = back;
     k.fillRect(0, 0, W, H);
-    this._speckle(k, 0, 0, W, H, 1200, 'rgba(255,225,190,0.02)');
+
+    // strata, running the long way — the cut face of the soil around the pit
+    k.strokeStyle = 'rgba(255,220,175,0.022)';
+    k.lineWidth = 1;
+    k.beginPath();
+    for (let y = 0; y < H; y += 26) {
+      k.moveTo(0, y + rand01(y) * 6);
+      k.lineTo(W, y + rand01(y + 1) * 6);
+    }
+    k.stroke();
+
+    // a warm bloom top and bottom, as if the torchlight spills past the wall
+    for (const gy of [0, H]) {
+      const spill = k.createRadialGradient(W / 2, gy, 0, W / 2, gy, Math.max(W, H) * 0.45);
+      spill.addColorStop(0, 'rgba(255,160,60,0.07)');
+      spill.addColorStop(1, 'rgba(255,150,60,0)');
+      k.fillStyle = spill;
+      k.fillRect(0, 0, W, H);
+    }
+
+    this._speckle(k, 0, 0, W, H, 1400, 'rgba(255,225,190,0.025)');
     this.bgChrome = chrome;
 
     const vig = document.createElement('canvas');
@@ -534,6 +648,65 @@ export class CanvasRenderer {
     v.fillStyle = g;
     v.fillRect(0, 0, W, H);
     this.bgVignette = vig;
+  }
+
+  /**
+   * Chalk and rake marks on the pit floor.
+   *
+   * A line battle is a narrow vertical band, so most of the arena is empty for
+   * most of a fight — and an empty rectangle of flat brown reads as unfinished
+   * rather than as space. Marking the floor as a PLACE (a fighting circle, a
+   * centre line, raked lanes, gate mouths) means the camera always has structure
+   * in shot, at any zoom, without adding a single asset.
+   */
+  _pitMarkings(c, ax, ay, sw, sh) {
+    const cx = ax + sw / 2;
+    const cy = ay + sh / 2;
+    c.save();
+
+    // the fighting circle
+    const ringR = Math.min(sw, sh) * 0.38;
+    c.strokeStyle = 'rgba(255,232,198,0.09)';
+    c.lineWidth = 3;
+    c.beginPath();
+    c.ellipse(cx, cy, ringR * 1.24, ringR, 0, 0, Math.PI * 2);
+    c.stroke();
+    c.strokeStyle = 'rgba(0,0,0,0.13)';
+    c.lineWidth = 1.5;
+    c.beginPath();
+    c.ellipse(cx, cy, ringR * 1.24 - 5, ringR - 5, 0, 0, Math.PI * 2);
+    c.stroke();
+
+    // centre line + the two gate mouths the colonies come out of
+    c.strokeStyle = 'rgba(255,232,198,0.07)';
+    c.lineWidth = 2;
+    c.setLineDash([10, 14]);
+    c.beginPath();
+    c.moveTo(cx, ay + 12);
+    c.lineTo(cx, ay + sh - 12);
+    c.stroke();
+    c.setLineDash([]);
+
+    for (const gx of [ax + sw * 0.055, ax + sw * 0.945]) {
+      const g = c.createRadialGradient(gx, cy, 0, gx, cy, sh * 0.34);
+      g.addColorStop(0, 'rgba(0,0,0,0.24)');
+      g.addColorStop(1, 'rgba(0,0,0,0)');
+      c.fillStyle = g;
+      c.fillRect(ax, ay, sw, sh);
+    }
+
+    // raked lanes, running the long way like a swept floor
+    c.strokeStyle = 'rgba(0,0,0,0.05)';
+    c.lineWidth = 2;
+    c.beginPath();
+    for (let i = 1; i < 14; i++) {
+      const y = ay + (sh * i) / 14;
+      c.moveTo(ax + 10, y);
+      c.lineTo(ax + sw - 10, y);
+    }
+    c.stroke();
+
+    c.restore();
   }
 
   _speckle(c, x, y, w, h, count, color) {
@@ -947,6 +1120,16 @@ export class CanvasRenderer {
     this._advancePhase(dt); // hold the intro / scrub the slow-mo replay / cue the outro
     this._updateCamera(dt);
 
+    // Start every frame from a known state. Compositing mode and alpha are canvas
+    // state that outlives the call that set them, so a draw which throws part way
+    // through — anywhere, not only in effects — would otherwise leak additive
+    // blending into every subsequent frame and white the arena out for good. The
+    // caller (public/battle.js) deliberately keeps the render loop alive through
+    // exceptions, which is exactly why the loop has to be able to recover.
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.globalAlpha = 1;
+    ctx.filter = 'none';
+
     // 1) stadium surround (static, canvas space)
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.drawImage(this.bgChrome, 0, 0);
@@ -1349,27 +1532,45 @@ export class CanvasRenderer {
 
       // --- team glow + footprint ring under the sprite (species-independent identity) ---
       const team = TEAM[a.team] || TEAM.A;
-      // soft ground glow
-      const glow = ctx.createRadialGradient(a.x, a.y, size * 0.4, a.x, a.y, size * 2.6);
+      // Soft ground glow. Deliberately restrained: the ring's job is to say WHOSE
+      // a bug is, and a disc bright enough to be seen from across the arena is
+      // also bright enough to hide the bug standing on it. Twelve of these
+      // overlapping in a melee is what turned a fight into two neon smears.
+      const glow = ctx.createRadialGradient(a.x, a.y, size * 0.4, a.x, a.y, size * 2.4);
       glow.addColorStop(0, team.glow);
       glow.addColorStop(1, 'rgba(0,0,0,0)');
       ctx.fillStyle = glow;
       ctx.beginPath();
-      ctx.arc(a.x, a.y, size * 2.6, 0, Math.PI * 2);
+      ctx.arc(a.x, a.y, size * 2.4, 0, Math.PI * 2);
       ctx.fill();
-      // tinted footprint disc + crisp ring so the side reads at a glance
+      // A BASE PLATE, not an outline.
+      //
+      // A bright circle stroked at the sprite's own radius sat exactly where the
+      // legs and antennae stick out, and every bug on the field came out looking
+      // like a wagon wheel. A squashed, ground-level platter reads as the patch
+      // of sand the unit is standing on: the legs cross it the way legs should,
+      // and twelve of them in a melee still resolve into two coloured masses.
+      const pr = size * 1.55;
       ctx.save();
-      ctx.globalAlpha = 0.18;
-      ctx.fillStyle = team.ring;
+      ctx.globalAlpha = 0.3;
+      const plate = ctx.createRadialGradient(a.x, a.y, pr * 0.2, a.x, a.y, pr);
+      plate.addColorStop(0, team.ring);
+      plate.addColorStop(0.72, team.ring);
+      plate.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = plate;
       ctx.beginPath();
-      ctx.arc(a.x, a.y, size * 1.75, 0, Math.PI * 2);
+      ctx.ellipse(a.x, a.y + size * 0.16, pr, pr * 0.62, 0, 0, Math.PI * 2);
       ctx.fill();
       ctx.restore();
-      ctx.beginPath();
-      ctx.arc(a.x, a.y, size * 1.75, 0, Math.PI * 2);
+
+      ctx.save();
+      ctx.globalAlpha = 0.85;
       ctx.strokeStyle = team.ring;
-      ctx.lineWidth = 2.5;
+      ctx.lineWidth = 1.6;
+      ctx.beginPath();
+      ctx.ellipse(a.x, a.y + size * 0.16, pr, pr * 0.62, 0, 0, Math.PI * 2);
       ctx.stroke();
+      ctx.restore();
 
       // --- last-stand rage: a pulsing red aura under the body (persistent tell) ---
       if (a.statuses.some((s) => s.type === 'enraged')) {
@@ -1519,6 +1720,24 @@ export class CanvasRenderer {
     ctx.fillRect(x, y, barW * pct, 3 * k);
   }
 
+  /**
+   * Draw the live effects.
+   *
+   * Each one is isolated, and for a specific reason. Most effect shapes are drawn
+   * with `globalCompositeOperation = 'lighter'`, and the composite mode is CANVAS
+   * state, not per-call state — so if one effect throws part way through, the
+   * additive mode it set is still in force for everything drawn after it, on this
+   * frame and on every frame after. The whole arena then sums to white and stays
+   * white, with nothing in the console except one swallowed exception.
+   *
+   * That is not hypothetical: the Dragonfly shipped emitting a `dash` with the
+   * wrong field names, an undefined coordinate reached `createRadialGradient`,
+   * and three Dragonflies whited out the battle permanently.
+   *
+   * So: bad geometry is dropped before it is drawn, and the compositing state is
+   * restored in a `finally` regardless. A malformed effect from any species now
+   * costs that one effect, not the rest of the fight.
+   */
   _drawEffects(ctx) {
     // Fade the big auras down further the more of them are on screen at once, so
     // two overlapping ones read as two effects rather than one bright blob.
@@ -1526,11 +1745,31 @@ export class CanvasRenderer {
     const crowd = wideAlive > 1 ? 1 / (1 + 0.4 * (wideAlive - 1)) : 1;
 
     for (const fx of this.effects) {
-      // These two need renderer state (the sprite catalog / live caster position),
-      // so they're drawn here rather than by the stateless `drawEffect`.
-      if (fx.kind === 'afterimage') this._drawAfterimages(ctx, fx);
-      else if (fx.kind === 'windup') this._drawWindup(ctx, fx);
-      else drawEffect(ctx, fx, WIDE_FX.has(fx.kind) ? crowd : 1);
+      if (!finiteGeometry(fx)) {
+        if (!fx._warned) {
+          fx._warned = true;
+          console.warn(`[render] dropping "${fx.kind}" effect with non-finite geometry`, fx);
+        }
+        continue;
+      }
+      try {
+        // These two need renderer state (the sprite catalog / live caster
+        // position), so they're drawn here rather than by the stateless
+        // `drawEffect`.
+        if (fx.kind === 'afterimage') this._drawAfterimages(ctx, fx);
+        else if (fx.kind === 'windup') this._drawWindup(ctx, fx);
+        else drawEffect(ctx, fx, WIDE_FX.has(fx.kind) ? crowd : 1);
+      } catch (err) {
+        if (!fx._warned) {
+          fx._warned = true;
+          console.warn(`[render] "${fx.kind}" effect failed to draw`, err);
+        }
+      } finally {
+        // Belt and braces: whatever happened above, the next thing drawn starts
+        // from a clean compositing state.
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.globalAlpha = 1;
+      }
     }
   }
 
@@ -1642,6 +1881,39 @@ function hashId(id) {
   let h = 0;
   for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) | 0;
   return (h % 628) / 100; // 0..~6.28 so it seeds a phase offset
+}
+
+/**
+ * Deterministic 0..1 from an integer.
+ *
+ * The floor is rasterized once into an offscreen canvas, so `Math.random()` would
+ * technically work — but it would draw a different arena on every reload, and a
+ * fixed arena is the one thing a player learns the shape of across thirty levels.
+ */
+function rand01(n) {
+  const x = Math.sin(n * 127.1 + 311.7) * 43758.5453;
+  return x - Math.floor(x);
+}
+
+/**
+ * Every coordinate an effect carries is a real number.
+ *
+ * A species that names a field wrong hands the renderer `undefined`, and the
+ * canvas API is split-brained about that: `arc()` silently skips the segment,
+ * while `createRadialGradient()` throws. The throw is the dangerous one — see
+ * `_drawEffects`. Checking up front turns "the fight went white" into one
+ * console warning and one missing sparkle.
+ */
+const FX_COORDS = ['x', 'y', 'x1', 'y1', 'x2', 'y2', 'radius', 'r'];
+function finiteGeometry(fx) {
+  for (const k of FX_COORDS) {
+    if (fx[k] !== undefined && !Number.isFinite(fx[k])) return false;
+  }
+  // A shape defined by two endpoints needs both, whole.
+  if (fx.x1 !== undefined || fx.x2 !== undefined) {
+    return Number.isFinite(fx.x1) && Number.isFinite(fx.y1) && Number.isFinite(fx.x2) && Number.isFinite(fx.y2);
+  }
+  return true;
 }
 
 function roundRect(ctx, x, y, w, h, r) {
