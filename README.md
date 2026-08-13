@@ -229,10 +229,18 @@ and desktop builds behave identically.
 full SDK-call map, ready to paste into the developer portal. The short version:
 
 ```bash
-npm run check      # campaign beatable + build passes portal checks + smoke test
+npm run check      # effects + campaign beatable + portal build checks + smoke test
 npm run package    # -> release/colony-gladiator.zip  (index.html at the root)
-npm run cover      # -> release/art/*.png  (cover, icon, screenshots)
+npm run art        # -> release/art/  (3 covers, 5 screenshots, 2 preview videos)
 ```
+
+The art step exists because the portal's asset spec is exact and easy to fail:
+three cover images at 1920x1080, 800x1200 and 800x800, plus two preview videos
+(landscape and 2:3 portrait, 1080p, under 20 seconds, no audio, no letterboxing,
+no visible cursor, no speed-up). `tools/trailer.js` records through Chrome's
+DevTools screencast rather than repeated screenshots, because a screenshot takes
+~80ms and capturing 30fps that way produces a video of a game running four times
+too fast.
 
 `npm run build` refuses to produce a build that a portal would reject. It fails
 on a root-absolute URL, on a request to any host other than the SDK, on

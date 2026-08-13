@@ -1,16 +1,37 @@
 # Submitting Colony Gladiator to CrazyGames
 
-Everything the developer portal asks for, ready to paste. Regenerate the build
-and the art with `npm run package && npm run cover`.
+Everything the developer portal asks for, ready to paste.
+
+---
+
+## 0. One-time setup
+
+1. **Make a developer account** at <https://developer.crazygames.com/>. It is
+   free and separate from a player account.
+2. **Complete the payout onboarding** in the portal (it runs through Tipalti):
+   personal or company details, address, country, tax form, and a payment
+   method — wire, ACH/direct deposit, eCheck or PayPal. Do this early; it is
+   the slowest part and it does not block submitting, only getting paid.
+3. **Know which launch you are aiming for.** The portal has two tiers:
+   - *Basic launch* — goes live without full SDK integration, **but
+     monetisation is off**. No ad revenue.
+   - *Full launch* — requires the SDK properly integrated. This is the one that
+     earns. **This build is already at full-launch standard** (see §5).
+
+   There is no reason to take Basic here.
+
+Payouts are monthly once you clear **€100** in earnings; anything under €10 in a
+month rolls into the next. Terms are NET 60, though it usually lands by the 10th
+of the following month.
 
 ---
 
 ## 1. Before you upload
 
 ```bash
-npm run check      # campaign is beatable + build passes portal checks + smoke test
+npm run check      # effects + campaign beatable + portal build checks + smoke test
 npm run package    # -> release/colony-gladiator.zip
-npm run cover      # -> release/art/*.png
+npm run art        # -> release/art/  (3 covers, 5 screenshots, 2 preview videos)
 ```
 
 `npm run check` is the gate. It runs four things and any of them failing means
@@ -119,21 +140,43 @@ are first-class; the arena re-cuts its render target to whichever it is in.
 
 ## 4. Store art
 
-Generated from the running game by `npm run cover`, so it can never show
-something the game does not.
+All generated from the running game by `npm run art`, so the store page can never
+promise something the game does not show. Regenerate after any visual change.
 
-| File | Size | Use |
+**The three covers are mandatory and the sizes are exact:**
+
+| File | Size | Portal slot |
 |---|---|---|
-| `release/art/cover.png` | 1920×1080 | Main thumbnail / cover |
-| `release/art/icon.png` | 1024×1024 | Square icon |
-| `release/art/screenshot-1-deploy.png` | 1920×1080 | The deploy screen — the actual game |
-| `release/art/screenshot-2-battle.png` | 1920×1080 | A fight mid-resolution |
-| `release/art/screenshot-3-campaign.png` | 1920×1080 | The 30-chamber map |
-| `release/art/screenshot-4-drawer.png` | 1920×1080 | The specimen drawer |
-| `release/art/screenshot-5-phone.png` | 1170×2532 | Mobile portrait |
+| `cover-landscape-1920x1080.png` | 1920×1080 (16:9) | Landscape cover |
+| `cover-portrait-800x1200.png` | 800×1200 (2:3) | Portrait cover |
+| `cover-square-800x800.png` | 800×800 (1:1) | Square cover |
 
-Lead with `screenshot-1-deploy.png`. It is the only image that shows what the
-player actually does.
+**Both preview videos are mandatory too:**
+
+| File | Spec | Portal slot |
+|---|---|---|
+| `preview-landscape.mp4` | 1920×1080, 18s, no audio, 3.2 MB | Landscape preview |
+| `preview-portrait.mp4` | 1080×1620 (2:3), 18s, no audio, 2.8 MB | Portrait preview |
+
+These are built against the portal's rules rather than trimmed to fit them: 18s
+(the ceiling is 20), no audio track, no letterboxing, no black or logo frames, no
+cursor, no speed-up. `tools/trailer.js` records via Chrome's DevTools screencast
+rather than repeated screenshots — screenshots take ~80ms each, so capturing 30fps
+that way records a game running four times faster than the video plays it back,
+which is on the portal's reject list.
+
+**Screenshots** (optional but worth uploading):
+
+| File | Shows |
+|---|---|
+| `screenshot-1-deploy.png` | The deploy screen — what the player actually does |
+| `screenshot-2-battle.png` | A fight mid-resolution |
+| `screenshot-3-campaign.png` | The 30-chamber map |
+| `screenshot-4-drawer.png` | The specimen drawer |
+| `screenshot-5-phone.png` | Mobile portrait |
+
+Lead with `screenshot-1-deploy.png`. It is the only image that shows the decision
+the game is actually about.
 
 ---
 
