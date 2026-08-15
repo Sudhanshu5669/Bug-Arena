@@ -18,6 +18,19 @@ import { portal } from './portal.js';
 
 export const audio = new ArenaAudio({ volume: 0.55 });
 
+/**
+ * Put the sound button's label back in step with what is actually audible.
+ *
+ * The portal's mute setting silences the game over the player's head, and a
+ * button reading "Sound on" next to a silent arena looks like a bug rather than
+ * like the portal's own control doing its job.
+ */
+export function syncSoundButton() {
+  const btn = $('btn-sound');
+  if (!btn) return;
+  btn.textContent = audio.muted || audio.portalMuted ? 'Sound off' : 'Sound on';
+}
+
 let catalogById = new Map();
 let renderer = null;
 let engine = null;
@@ -189,7 +202,7 @@ function wireControls() {
 
   $('btn-sound').addEventListener('click', () => {
     audio.setMuted(!audio.muted);
-    $('btn-sound').textContent = audio.muted ? 'Sound off' : 'Sound on';
+    syncSoundButton();
   });
 
   $('btn-skip').addEventListener('click', skip);

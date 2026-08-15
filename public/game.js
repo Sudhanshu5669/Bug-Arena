@@ -19,7 +19,7 @@ import * as store from './game/save.js';
 
 import { $, show, setNum, thumbUrl, toast } from './ui.js';
 import { portal } from './portal.js';
-import { audio, initBattle, abortBattle } from './battle.js';
+import { audio, initBattle, abortBattle, syncSoundButton } from './battle.js';
 import { DeployScreen } from './deployScreen.js';
 import { CampaignScreen } from './campaignScreen.js';
 import { MakerScreen } from './makerScreen.js';
@@ -203,6 +203,11 @@ async function boot() {
   portal.setAudioGate({
     mute: () => audio.setAdMuted(true),
     unmute: () => audio.setAdMuted(false),
+  });
+  // ...and honour the portal's own mute switch, which outranks the sound button.
+  portal.setMuteSetting((muted) => {
+    audio.setPortalMuted(muted);
+    syncSoundButton();
   });
   wire();
   renderTitle();

@@ -38,7 +38,10 @@ async function findChrome() {
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-/** The portal SDK is not served locally; its 404 is expected and not a failure. */
+/**
+ * The portal SDK, which this test deliberately BLOCKS (see below); the resulting
+ * failed request and its console noise are expected and are not faults.
+ */
 const IGNORE_REQUEST = /sdk\.crazygames\.com/;
 
 const DEVICES = {
@@ -87,6 +90,27 @@ async function run(device) {
   });
   page.on('response', (r) => {
     if (r.status() >= 400 && !IGNORE_REQUEST.test(r.url())) note(`HTTP ${r.status()}: ${r.url()}`);
+  });
+
+  // Keep the real portal SDK out of a local run.
+  //
+  // It IS reachable from a dev machine, and when it loads the game correctly
+  // prefers the portal's own data module — so the save this test seeds into
+  // localStorage is then neither read nor written, and the persistence check
+  // below silently measures nothing. Worse, whether the SDK wins its 3s race
+  // varies run to run, so the check flickered between pass and fail on a build
+  // with no save bug in it at all. Blocking it pins the run to the localStorage
+  // path; the SDK path is covered by stubbing the SDK, not by reaching for it.
+  await page.setRequestInterception(true);
+  page.on('request', (req) => {
+    // Answered with an empty script rather than aborted: an abort logs a console
+    // error of its own, which this test would then have to learn to ignore —
+    // and an ignore rule that broad would hide a real failed request too.
+    if (IGNORE_REQUEST.test(req.url())) {
+      req.respond({ status: 200, contentType: 'application/javascript', body: '' }).catch(() => {});
+    } else {
+      req.continue().catch(() => {});
+    }
   });
 
   // Seed ONCE. This runs on every document, including the one created by the

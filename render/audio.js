@@ -42,6 +42,7 @@ export class ArenaAudio {
     this.supported = typeof window !== 'undefined' && !!(window.AudioContext || window.webkitAudioContext);
     this.muted = muted; // the player's own sound toggle
     this.adMuted = false; // held down for the length of an advertisement
+    this.portalMuted = false; // held down while the portal's own mute is on
     this.volume = volume;
 
     this.ctx = null;
@@ -88,8 +89,12 @@ export class ArenaAudio {
     const Ctor = window.AudioContext || window.webkitAudioContext;
     this.ctx = new Ctor();
     this.master = this.ctx.createGain();
-    this.master.gain.value = this.muted || this.adMuted ? 0 : this.volume;
     this.master.connect(this.ctx.destination);
+    // Through _applyGain rather than by hand: the context is built on the first
+    // gesture, which is LATER than the portal's mute setting arrives, and a
+    // hand-written copy of the mute test here silently missed that switch —
+    // the game came back to life the moment the player touched anything.
+    this._applyGain();
     return this.ctx;
   }
 
@@ -123,6 +128,19 @@ export class ArenaAudio {
     this._applyGain();
   }
 
+  /**
+   * Silence because the PORTAL asked for it (`SDK.game.settings.muteAudio`).
+   *
+   * A third switch rather than a reuse of `adMuted`: an ad finishing calls
+   * setAdMuted(false), and sharing one flag would let that un-silence a game the
+   * portal had muted. The portal's choice also outranks the player's, which
+   * falls out of the same OR — nothing the sound button does can clear it.
+   */
+  setPortalMuted(muted) {
+    this.portalMuted = muted;
+    this._applyGain();
+  }
+
   setVolume(v) {
     this.volume = Math.max(0, Math.min(1, v));
     this._applyGain();
@@ -130,7 +148,8 @@ export class ArenaAudio {
 
   _applyGain() {
     if (!this.master) return;
-    this.master.gain.value = this.muted || this.adMuted ? 0 : this.volume;
+    const silent = this.muted || this.adMuted || this.portalMuted;
+    this.master.gain.value = silent ? 0 : this.volume;
   }
 
   /** One second of white noise, generated once and shared by every noise layer. */

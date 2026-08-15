@@ -20,10 +20,11 @@
     "levels": "node tools/levelReport.js",
     "campaign": "node tools/campaignProbe.js",
     "smoke": "node tools/smoke.js",
+    "sdk": "node tools/sdkCheck.js",
     "shots": "node tools/shots.js",
     "cover": "node tools/cover.js",
     "package": "node tools/buildStatic.js && node tools/package.js",
-    "check": "node tools/fxCheck.js && node tools/campaignProbe.js && node tools/buildStatic.js && node tools/smoke.js",
+    "check": "node tools/fxCheck.js && node tools/campaignProbe.js && node tools/buildStatic.js && node tools/smoke.js && node tools/sdkCheck.js",
     "fx": "node tools/fxCheck.js",
     "trailer": "node tools/trailer.js",
     "art": "node tools/cover.js && node tools/trailer.js"

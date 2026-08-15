@@ -42,7 +42,8 @@ do not submit yet:
 | `tools/fxCheck.js` | Every ability effect the 44 species emit carries geometry the renderer can actually draw. A malformed payload throws mid-frame and leaves the canvas in additive blend, whiting out the rest of the battle — this shipped once, in five species at the same time. |
 | `tools/campaignProbe.js` | All 30 levels are clearable by an unoptimised player, and no level is a free win. A wall here is the single most likely reason a reviewer stops playing. |
 | `tools/buildStatic.js` | No root-absolute URLs, no external requests except the CrazyGames SDK, under the 50 MB / 1500 file limits, and nothing references a dev-only file the build strips. |
-| `tools/smoke.js` | Every screen is reachable on desktop AND on a 390×844 phone, progress survives a reload, and the console is clean. |
+| `tools/smoke.js` | Every screen is reachable on desktop AND on a 390×844 phone, progress survives a reload, and the console is clean. It blocks the real SDK on purpose: the SDK *is* reachable from a dev machine, and when it loads the game rightly prefers the portal's data module — so the seeded save is neither read nor written and the persistence check silently measures nothing. |
+| `tools/sdkCheck.js` | The portal half: `init` → `loadingStart` → `loadingStop`, the save actually landing in `SDK.data` and not in localStorage, `muteAudio` silencing the game and outranking the sound button, and `gameplayStart`/`Stop` bracketing the fight and nothing else. Runs against a stub SDK. |
 
 Then verify the **built** bundle the way a portal actually hosts it — from a
 subpath, which is where absolute-path bugs surface and a plain dev server never
@@ -62,6 +63,18 @@ SMOKE_BASE=http://localhost:4000/games/colony-gladiator/ node tools/smoke.js
 
 `index.html` is at the **root of the archive**, not inside a folder. `npm run
 package` guarantees this; if you ever zip by hand, zip the *contents* of `dist/`.
+
+### The upload form, field by field
+
+| Field | Answer | Why |
+|---|---|---|
+| **Game name** | `Colony Gladiator` | Must match the title shown *in* the game, and the game says "Colony Gladiator" in the `<title>`, the boot screen and the title-screen wordmark — as do all three covers and both trailers. 16 of the 35 characters allowed. |
+| **Game engine** | `html5` | Plain ES modules, 2D canvas, Web Audio. No engine, no bundler, no WASM. |
+| **Upload files** | `release/colony-gladiator.zip` | `index.html` at the archive root. |
+| **Does your game save progress?** | **Yes, using the Data Module from the CrazyGames SDK** | `SDK.data` is the preferred backend and is adopted before the first read (`game/save.js` → `useBackend()`). `localStorage` is only the fallback for when there is no portal — picking the LocalStorage answer here would describe the fallback, not the game. |
+| ☐ The game supports mobile devices | **tick** | Separate portrait and landscape layouts, Pointer Events throughout, 44 px touch targets, safe-area insets. `tools/smoke.js` walks the whole game at 390×844 with touch emulation on every run. |
+| ☐ The game is an online multiplayer game | **leave unticked** | Singleplayer. Nothing in the build talks to a server. |
+| ☐ The game supports CrazyGames muting audio through SDK | **tick** | `game.settings.muteAudio` is read at boot and tracked with `addSettingsChangeListener`; it silences the master gain and outranks the in-game sound button. Asserted by `npm run sdk`. |
 
 ---
 
@@ -194,12 +207,27 @@ absent. Nothing in the game branches on "are we on a portal".
 | `ad.requestAd('midgame')` | `campaignScreen.js` `interstitial()` | Fired on the transition OUT of the result screen, at most once every 3 fights, in a gap the player was already waiting through. Never mid-fight, never on a navigation button. |
 | `ad.requestAd('rewarded')` | `campaignScreen.js` `btn-lr-boost` | Strictly player-initiated, offered **only after a defeat**, once per chamber. Carries a video icon, states its reward, and sits below two free alternatives. Rewards on `adFinished` only. |
 | `SDK.data` | `game/save.js` via `store.useBackend()` | Adopted once the handshake resolves, before the first read, so a signed-in player's progress syncs across devices. Falls back to `localStorage`, then to memory — a browser blocking third-party storage cannot take the game down. |
+| `game.settings.muteAudio` + `addSettingsChangeListener()` | `public/portal.js` → `game.js` `boot()` | The portal's own mute button. Read once at boot (it can already be on — the portal remembers a player who muted the last game) and again on every change. |
 
-**Audio is muted for the length of every ad** (`portal.setAudioGate` →
-`ArenaAudio.setAdMuted`) on a channel separate from the player's own sound
-toggle, so an ad never silently turns their sound back on.
+**Three independent mute switches, one gain** (`ArenaAudio`): the player's sound
+button, the ad gate, and the portal's `muteAudio` setting. Sound comes back only
+if all three allow it, which is what makes the portal's mute outrank the in-game
+toggle the way the requirements ask, and stops an ad ending from silently turning
+a muted player's sound back on. The gain is applied when the AudioContext is
+BUILT, not only when a switch moves — the context is created on the first
+gesture, which is later than the portal's setting arrives.
+
+| Mute source | Wiring | Outranks |
+|---|---|---|
+| Player's sound button | `battle.js` → `setMuted()` | — |
+| Ad playing | `portal.setAudioGate` → `setAdMuted()` | the player |
+| Portal setting | `portal.setMuteSetting` → `setPortalMuted()` | the player, and outlives any ad |
 
 **No adblock nag, no forced ads, no ad on death, no chained ads.**
+
+All of the above is asserted by `npm run sdk` against a stub SDK — the portal
+half of the integration otherwise only ever runs on someone else's site, where a
+mistake is both expensive and invisible from here.
 
 ---
 

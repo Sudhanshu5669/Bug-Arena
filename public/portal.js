@@ -55,6 +55,23 @@ function attempt(label, fn) {
  */
 let audioGate = null;
 
+/**
+ * Told about `SDK.game.settings.muteAudio`, which is the portal's OWN mute
+ * button — separate from the ad gate above, and outranking the player's sound
+ * toggle. Set by setMuteSetting(); called on init and again on every change.
+ */
+let muteSetting = null;
+
+/** Push the portal's current muteAudio value at whoever asked for it. */
+function pushMuteSetting(settings) {
+  if (!muteSetting) return;
+  try {
+    muteSetting(settings?.muteAudio === true);
+  } catch (err) {
+    console.warn('[portal] mute setting handler threw', err);
+  }
+}
+
 export const portal = {
   /** True when a real portal SDK is present and initialised. */
   get available() {
@@ -81,6 +98,30 @@ export const portal = {
     audioGate = gate;
   },
 
+  /**
+   * Subscribe to the portal's mute-audio setting.
+   *
+   * Called once with the value the SDK already holds, then again on every
+   * change. Safe to call before or after init(): with no SDK the handler is
+   * simply told `false` and never hears from us again, which is the local /
+   * itch / desktop case.
+   *
+   * @param {(muted:boolean) => void} fn
+   */
+  setMuteSetting(fn) {
+    muteSetting = fn;
+    const s = sdk();
+    if (!ready || !s) {
+      pushMuteSetting(null); // no portal — nothing is muting us
+      return;
+    }
+    try {
+      pushMuteSetting(s.game?.settings);
+    } catch (err) {
+      console.warn('[portal] reading game settings failed', err);
+    }
+  },
+
   /** Called once before assets load. */
   async init() {
     const s = sdk();
@@ -89,6 +130,14 @@ export const portal = {
       await s.init?.();
       ready = true;
       s.game?.loadingStart?.();
+      // The setting can be on from the very first frame (the portal remembers a
+      // player who muted the last game), so read it here rather than waiting for
+      // a change event that may never come. Registered once, never removed: the
+      // game lives as long as the page does.
+      attempt('addSettingsChangeListener', (sdkObj) =>
+        sdkObj.game?.addSettingsChangeListener?.(pushMuteSetting)
+      );
+      if (muteSetting) pushMuteSetting(s.game?.settings);
       return true;
     } catch (err) {
       console.warn('[portal] init failed; continuing without the SDK.', err);
