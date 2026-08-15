@@ -74,6 +74,7 @@ package` guarantees this; if you ever zip by hand, zip the *contents* of `dist/`
 | **Does your game save progress?** | **Yes, using the Data Module from the CrazyGames SDK** | `SDK.data` is the preferred backend and is adopted before the first read (`game/save.js` → `useBackend()`). `localStorage` is only the fallback for when there is no portal — picking the LocalStorage answer here would describe the fallback, not the game. |
 | ☐ The game supports mobile devices | **tick** | Separate portrait and landscape layouts, Pointer Events throughout, 44 px touch targets, safe-area insets. `tools/smoke.js` walks the whole game at 390×844 with touch emulation on every run. |
 | ☐ The game is an online multiplayer game | **leave unticked** | Singleplayer. Nothing in the build talks to a server. |
+| **Orientation** (asked once mobile support is ticked) | **Both** | Portrait and landscape have separate layouts and both are walked by the smoke test on every run — see §3. |
 | ☐ The game supports CrazyGames muting audio through SDK | **tick** | `game.settings.muteAudio` is read at boot and tracked with `addSettingsChangeListener`; it silences the master gain and outranks the in-game sound button. Asserted by `npm run sdk`. |
 
 ---
@@ -144,8 +145,21 @@ Also:    Auto Battler, Simulation, Idle, Animal, Casual, Singleplayer, 2D,
 **Age rating:** Everyone. No blood, no gore, no text chat, no user-generated
 content, no third-party data collection. Insects fight and disappear.
 
-**Orientation:** Both. Portrait and landscape are laid out separately and both
-are first-class; the arena re-cuts its render target to whichever it is in.
+**Orientation:** **Both.** Portrait and landscape are laid out separately, and
+the arena re-cuts its render target when the phone turns.
+
+Landscape is the harder of the two and is not a small desktop: it is ~390px of
+vertical room, which is where a screen that merely *reflows* stops being usable.
+Three screens needed real layouts rather than a narrower portrait:
+
+| Screen | Portrait | Landscape |
+|---|---|---|
+| Deploy | tray is a drawer under the sand | tray returns beside the sand, with a floor of one full card row so it cannot be squeezed to nothing |
+| Descent draft | colony panel stacks under the drawer | two columns, because stacked it needs 521px on a 390px screen that does not scroll |
+| Title | one column, centred | trimmed until the whole menu and the how-to button fit without scrolling |
+
+`tools/smoke.js` walks the entire game at 844×390 with touch emulation on every
+run, so this claim stays true rather than being true once.
 
 **Languages:** English.
 
@@ -241,7 +255,7 @@ mistake is both expensive and invisible from here.
 - [x] **Chrome / Edge / Safari** — plain ES modules, 2D canvas, Web Audio. No WebGL, no WASM, no bundler
 - [x] **Mouse, keyboard and touch** — Pointer Events throughout; focus-visible outlines on every control
 - [x] **44 px minimum touch targets**
-- [x] **Both orientations**, with separate layouts
+- [x] **Both orientations**, with separate layouts, both walked by the smoke test
 - [x] **`user-select: none`** on the body, as the portal requires
 - [x] **AudioContext resumed on `pointerdown` / `touchend` / `keydown`**, and again on `visibilitychange` — the iOS case the portal calls out
 - [x] **Safe-area insets** honoured for the portal's mobile app

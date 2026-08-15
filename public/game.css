@@ -479,7 +479,14 @@ button:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
 
 #screen-title {
   align-items: center;
+  /* `safe` matters on a landscape phone. Plain centring overflows a too-short
+     container in BOTH directions, and the half that goes past the top edge
+     cannot be scrolled back into view — the wordmark was sliced in half and no
+     amount of scrolling recovered it. `safe` falls back to start alignment the
+     moment the content stops fitting, which is when centring was doing harm.
+     The unprefixed value stays first for anything that does not understand it. */
   justify-content: center;
+  justify-content: safe center;
   text-align: center;
   padding: var(--gutter);
   overflow-y: auto;
@@ -1809,11 +1816,62 @@ button:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
   .tray .tcard .art { height: 44px; }
   .tray .tcard .art::before { width: 42px; height: 42px; }
   .tray .tcard .art img { max-width: 40px; max-height: 42px; }
-  .lineup { max-height: 96px; }
+  /* Same trade the narrow-portrait rule makes: the ability line is worth more
+     than the row of +/- buttons only until those buttons fall off the bottom of
+     the card and out of the drawer's scroll view. */
+  .tray .tcard .ab { display: none; }
+
+  /* The specimen drawer must survive being the LAST thing in a 390px-tall
+     column. It is `flex: 1 1 auto`, so it absorbs whatever the fixed items above
+     it leave over — and on a landscape phone the opposition panel, the drawer
+     heading and the hint left it THIRTEEN PIXELS, with the cards rendering below
+     the fold where no finger could reach them. The screen looked fine and its
+     one interaction was gone.
+
+     So: the fixed items above are trimmed to what a phone actually needs, the
+     drawer is given a floor of one full card row, and the column is allowed to
+     scroll as a last resort rather than silently swallowing the overflow. */
+  .deploy-side { overflow-y: auto; gap: 7px; }
+  .deploy-side .card,
+  .deploy-side .enemy-card { padding: 9px; gap: 6px; }
+  .deploy-side .card-title { font-size: 14px; }
+  /* The drag instruction is a portrait luxury; the cards teach it in one try. */
+  .deploy-side .hint { display: none; }
+  .lineup { max-height: 64px; }
   #deploy-enemy-card { flex: 0 0 auto; }
+  #deploy-tray { min-height: 128px; }
+  /* The descent draft, for the same reason as the deploy screen above it: the
+     narrow-width rule stacks the colony panel UNDER the drawer, which needs
+     521px on a screen that has 390 and does not scroll — so "Send them in" sat
+     131px below the bottom of the phone and the mode could not be played at all
+     in landscape. Sideways there is width to spare, so it goes back to two
+     columns and every fixed cap the stacked layout needed comes off. */
+  .draft-body {
+    grid-template-columns: minmax(0, 1fr) 268px;
+    grid-template-rows: minmax(0, 1fr);
+  }
+  .colony { height: auto; max-height: none; }
+  .colony .roster-list { max-height: none; flex: 1 1 auto; min-height: 44px; }
+  .specimens { grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); }
+  .specimen .art { height: 52px; }
+  .specimen .art::before { width: 48px; height: 48px; }
+
+  /* Sideways the menu is four big buttons and a stat strip in 390px of height.
+     It scrolls, but a title screen a reviewer has to scroll is a title screen
+     that looks broken, so it is trimmed until it fits instead. */
   #screen-title { padding-block: 8px; }
-  .wordmark { font-size: clamp(30px, 7vh, 44px); }
+  .wordmark { font-size: clamp(26px, 5.6vh, 38px); }
   .title-sub { display: none; }
+  .crest { margin-bottom: 4px; }
+  .meta-strip { margin-bottom: 6px; gap: 4px; }
+  /* The icons are decoration on a strip whose labels already say what each
+     number is; sideways they cost a row of height the menu needs more. */
+  .meta { padding: 5px 4px; }
+  .meta .ic { display: none; }
+  .mode { min-height: 46px; padding: 7px 14px 7px 13px; }
+  .mode.primary { min-height: 52px; }
+  .mode-grid { gap: 7px; margin-bottom: 9px; }
+  .title-foot { margin-top: 2px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

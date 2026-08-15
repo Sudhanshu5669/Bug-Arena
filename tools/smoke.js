@@ -44,9 +44,14 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
  */
 const IGNORE_REQUEST = /sdk\.crazygames\.com/;
 
+// The portal is told this game supports BOTH orientations, so both are walked.
+// A landscape phone is not a small desktop: it is ~390px of vertical room with a
+// touch pointer, which is the shape that breaks first and the one a reviewer on
+// a phone reaches by simply turning it sideways mid-fight.
 const DEVICES = {
   desktop: { width: 1440, height: 900, deviceScaleFactor: 1 },
   phone: { width: 390, height: 844, deviceScaleFactor: 2, isMobile: true, hasTouch: true },
+  'phone-landscape': { width: 844, height: 390, deviceScaleFactor: 2, isMobile: true, hasTouch: true },
 };
 
 const SEED = {
@@ -282,7 +287,7 @@ async function run(device) {
 }
 
 const all = [];
-for (const device of ['desktop', 'phone']) {
+for (const device of ['desktop', 'phone', 'phone-landscape']) {
   const f = await run(device);
   console.log(`  ${f.length ? '✗' : '✓'} ${device}${f.length ? ` — ${f.length} problem(s)` : ''}`);
   all.push(...f);
