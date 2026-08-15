@@ -165,6 +165,41 @@ run, so this claim stays true rather than being true once.
 
 ---
 
+## 3b. The portal's Basic Launch checklist
+
+Two different things live on that page, and they fail for different reasons.
+
+**The nine SDK events** are detected, not declared — the portal ticks one only
+when it OBSERVES the game firing it while someone plays. An event a reviewer
+cannot reach in their first few minutes reads as "not implemented" no matter how
+correct the code is. All nine fire within boot plus a single campaign level, and
+`npm run sdk` fails the build if any of them stops doing so:
+
+| Event | When it fires |
+|---|---|
+| Loading Start / Stop | Boot, around the sprite preload and engine warm-up |
+| Mute audio support | Boot — `addSettingsChangeListener` is registered during `init()` |
+| Get Item | Boot — the save is read through `SDK.data` |
+| Set Item / Remove Item | Boot — `useBackend()` probes the store with a write and a delete before trusting it, then the save itself is written |
+| Gameplay Start / Stop | The first battle |
+| Happytime | The first chamber ever cleared, then only warlord chambers and the end of the campaign |
+
+**The Yes/No rows are attestations** — the portal cannot check them, so they sit
+at "No" until you answer them. For this build:
+
+| Row | Answer | Basis |
+|---|---|---|
+| First gameplay start implemented correctly | **Yes** | `gameplayStart` brackets the battle only, never the menus |
+| Complies to Gameplay requirements | **Yes** | No forced ads, no ad on death, no chained ads, no adblock nag |
+| Runs on all CrazyGames domains | **Yes** | Every path is relative and the build fails on a root-absolute URL; verified by serving from `/games/colony-gladiator/` |
+| Browser checks | **Yes** | Plain ES modules, 2D canvas, Web Audio — no WebGL, no WASM, no bundler |
+| Device checks: Mobile | **Yes** | Both orientations walked by the smoke test on every run; use the portal's QR preview to confirm on your own phone |
+| No external ads | **Yes** | The only external request in the build is the CrazyGames SDK itself |
+| Does not offer external login options | **Yes** | No login, no account, no external link anywhere in the build |
+| In-game mention of Terms & Conditions and/or Privacy Policy | **N/A** | The game collects nothing, stores nothing off-device, and has no terms of its own to state |
+
+---
+
 ## 4. Store art
 
 All generated from the running game by `npm run art`, so the store page can never

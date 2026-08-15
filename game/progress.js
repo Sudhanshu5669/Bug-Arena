@@ -170,6 +170,9 @@ export class Progress {
     }
 
     const firstClear = !this.isCleared(index);
+    // The first chamber this colony has EVER taken — read before the clear is
+    // recorded, or it is always false.
+    const firstEverClear = firstClear && Object.keys(this.state.cleared).length === 0;
     const stars = Progress.starsFrom(deployed, survivors);
     const prev = this.state.cleared[index] ?? { stars: 0, plays: 0 };
 
@@ -199,6 +202,7 @@ export class Progress {
       coins,
       granted,
       firstClear,
+      firstEverClear,
       unlockedNext: firstClear && next ? next : null,
       campaignComplete: firstClear && !next,
     };

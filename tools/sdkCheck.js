@@ -52,10 +52,15 @@ function installStub() {
   const store = Object.create(null);
   const listeners = [];
 
+  // Data-module traffic is recorded separately from the game/lifecycle calls:
+  // the portal panel counts Set/Get/Remove Item as three of its nine checks.
+  const dataOps = [];
+
   window.__sdk = {
     calls,
     store,
     listeners,
+    dataOps,
     settings: { muteAudio: false, disableChat: false },
     /** Push a settings change the way the portal does. */
     change(patch) {
@@ -89,11 +94,16 @@ function installStub() {
         happytime: () => log('happytime'),
       },
       data: {
-        getItem: (k) => (k in store ? store[k] : null),
+        getItem: (k) => {
+          dataOps.push(`get:${k}`);
+          return k in store ? store[k] : null;
+        },
         setItem: (k, v) => {
+          dataOps.push(`set:${k}`);
           store[k] = String(v);
         },
         removeItem: (k) => {
+          dataOps.push(`remove:${k}`);
           delete store[k];
         },
       },
@@ -235,6 +245,33 @@ async function run() {
     await click('btn-skip', 2800);
     const after = await page.evaluate(() => window.__sdk.calls.filter((c) => c.startsWith('gameplay')));
     if (!after.includes('gameplayStop')) note('the battle ended without gameplayStop');
+
+    // --- the portal's own QA panel -------------------------------------------
+    // The developer portal lists nine events and ticks only the ones it OBSERVES
+    // while someone plays. Anything a reviewer cannot reach in their first few
+    // minutes reads as "not implemented" no matter how correct the code is —
+    // which is what happytime did when it was reserved for a warlord chamber
+    // five levels in. Everything here must be reachable from boot + one level.
+    const panel = await page.evaluate(() => ({
+      calls: window.__sdk.calls.slice(),
+      data: window.__sdk.dataOps ?? [],
+    }));
+    const REQUIRED = {
+      'Loading Start': (c) => c.includes('loadingStart'),
+      'Loading Stop': (c) => c.includes('loadingStop'),
+      'Mute audio support': (c) => c.includes('addSettingsChangeListener'),
+      'Gameplay Start': (c) => c.includes('gameplayStart'),
+      'Gameplay Stop': (c) => c.includes('gameplayStop'),
+      Happytime: (c) => c.includes('happytime'),
+      'Set Item': (_c, d) => d.some((o) => o.startsWith('set')),
+      'Get Item': (_c, d) => d.some((o) => o.startsWith('get')),
+      'Remove Item': (_c, d) => d.some((o) => o.startsWith('remove')),
+    };
+    for (const [label, test] of Object.entries(REQUIRED)) {
+      if (!test(panel.calls, panel.data)) {
+        note(`"${label}" never fired in a first session — the portal's QA panel will show it as missing`);
+      }
+    }
   } finally {
     await browser.close();
   }
@@ -245,7 +282,10 @@ async function run() {
     console.log('  SDK CHECK FAILED');
     process.exit(1);
   }
-  console.log('  ✓ SDK check — lifecycle, portal save store, muteAudio and gameplay brackets all correct.');
+  console.log(
+    '  ✓ SDK check — lifecycle, portal save store, muteAudio and gameplay brackets all correct,\n' +
+      '    and all nine events on the portal QA panel fire within boot + one level.'
+  );
 }
 
 run().catch((err) => {

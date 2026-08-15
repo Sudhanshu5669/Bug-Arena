@@ -324,7 +324,14 @@ export class CampaignScreen {
     // a warlord chamber, or the end of the campaign. The portal asks for this
     // explicitly ("the celebration should remain a special moment"), and firing
     // it on every routine clear is what makes it stop meaning anything.
-    if (won && (lv.isBoss || report.campaignComplete)) portal.happytime();
+    //
+    // The very first chamber a colony ever takes joins that list. It is a
+    // milestone by any honest reading — it is the moment the game starts — and
+    // it happens ONCE per save, so it cannot become routine. It also means a
+    // reviewer sees the celebration in their first two minutes rather than five
+    // levels in, which is the difference between the portal observing this event
+    // and marking it as never fired.
+    if (won && (lv.isBoss || report.campaignComplete || report.firstEverClear)) portal.happytime();
   }
 
   // --- wiring ----------------------------------------------------------------
